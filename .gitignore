@@ -1,0 +1,36 @@
+# Gradle / Kotlin
+.gradle/
+build/
+**/build/
+.kotlin/
+
+# Android
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin/JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# iOS / Xcode
+DerivedData/
+*.xcuserstate
+*.xcworkspace/
+xcuserdata/
+Pods/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# OS
+.DS_Store
+Thumbs.db
