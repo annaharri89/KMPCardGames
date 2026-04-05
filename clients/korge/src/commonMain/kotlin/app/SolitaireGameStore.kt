@@ -32,6 +32,7 @@ data class SolitaireUiState(
  */
 class SolitaireGameStore(
     private val domainUiMapper: DomainUiMapper = DomainUiMapper(),
+    // TODO: Default to a random seed per new game (keep injectable seed for tests/replays).
     private val initialSeed: Long = 20260320L,
 ) {
     private var currentState: SolitaireUiState = SolitaireUiState(
