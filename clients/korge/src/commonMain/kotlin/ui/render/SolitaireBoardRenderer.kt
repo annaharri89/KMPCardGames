@@ -490,7 +490,6 @@ class SolitaireBoardRenderer(
                 width = faceMotifWidth,
                 height = faceMotifHeight,
                 suitAccentColor = rankColor,
-                enableAnimatedFaceMotif = enableAnimatedFaceMotif,
             )
         }
         if (enableAnimatedFaceMotif && centerMotif != null && faceCardAnimal != FaceCardAnimal.NONE) {

@@ -5,15 +5,13 @@ import korlibs.korge.view.Stage
 import korlibs.korge.view.solidRect
 import ui.adapter.UiIntent
 import ui.input.SolitaireInputController
-import ui.render.CardAtlasLoader
-import ui.render.QueenFoxAtlasLoader
 import ui.render.SolitaireBoardRenderer
 import ui.render.expectedTopCardYForSolitairePile
 
 /**
  * KorGE entry for the playable solitaire screen: background, [SolitaireGameStore], [SolitaireBoardRenderer],
- * and [SolitaireInputController]. Card textures load asynchronously from resources; the board re-renders
- * and input re-binds after each state change. Drag-drop runs a short [SolitaireBoardRenderer.animateCardTravel]
+ * and [SolitaireInputController]. Card faces use text and shape fallbacks (no card atlas); the board
+ * re-renders and input re-binds after each state change. Drag-drop runs a short [SolitaireBoardRenderer.animateCardTravel]
  * tween before applying the final layout.
  */
 class SolitaireScene {
@@ -147,12 +145,6 @@ class SolitaireScene {
                 )
             }
 
-            launchImmediately {
-                val cardAtlasSlices = CardAtlasLoader.loadSliceMapFromResources(resources) ?: emptyMap()
-                val queenFoxSlices = QueenFoxAtlasLoader.loadSliceMapFromResources(resources) ?: emptyMap()
-                solitaireBoardRenderer.setTexturePackerSlices(cardAtlasSlices + queenFoxSlices)
-                renderAndBind()
-            }
             renderAndBind()
         }
     }

@@ -3,7 +3,6 @@ package ui.render
 import app.CardThemeSpec
 import domain.model.Suit
 import korlibs.image.bitmap.Bitmap
-import korlibs.image.bitmap.sliceWithBounds
 import korlibs.image.color.RGBA
 import korlibs.korge.view.Container
 import korlibs.korge.view.View
@@ -85,21 +84,7 @@ class FaceCardAnimalPainter(
         width: Double,
         height: Double,
         suitAccentColor: RGBA,
-        enableAnimatedFaceMotif: Boolean,
     ): View? {
-        if (rankSymbol == "QUEEN" && QueenFoxAnimatedMotif.hasSlices(sliceByBaseName)) {
-            val sliceMap = sliceByBaseName ?: return null
-            return QueenFoxAnimatedMotif.draw(
-                parentContainer = parentContainer,
-                sliceByBaseName = sliceMap,
-                suit = suit,
-                x = x,
-                y = y,
-                width = width,
-                height = height,
-                enableAnimatedFaceMotif = enableAnimatedFaceMotif,
-            )
-        }
         val textureKey = faceTextureBaseName(rankSymbol, suit)
         val slice = textureKey?.let { key ->
             sliceByBaseName?.get(key) ?: sliceByBaseName?.get("$key.png")
