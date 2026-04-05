@@ -16,6 +16,20 @@ data class SolitaireUiState(
     val cardTheme: CardTheme,
 )
 
+/**
+ * Mutable, UI-oriented snapshot for the solitaire screen: what to draw, what to tell the player,
+ * and light interaction state (selection, theme).
+ *
+ * All rule enforcement and undo stacks live in the `shared` module behind [ui.adapter.DomainUiMapper].
+ * This store wires KorGE to that layer: [start] opens a new Klondike game with [initialSeed],
+ * [dispatchIntent] forwards taps/drags as [UiIntent]s and copies back the latest [GameRenderModel],
+ * and it updates [SolitaireUiState.statusMessage], [SolitaireUiState.wasLastMoveAccepted], and
+ * [SolitaireUiState.hasWon] so the scene can show feedback without parsing domain errors.
+ *
+ * [undo] and [redo] call the mapper and, when there is nothing to undo/redo, keep the prior model
+ * and set a short status message instead of propagating an exception to the UI. [snapshot] returns
+ * the current [SolitaireUiState] for readers that should not trigger side effects.
+ */
 class SolitaireGameStore(
     private val domainUiMapper: DomainUiMapper = DomainUiMapper(),
     private val initialSeed: Long = 20260320L,
