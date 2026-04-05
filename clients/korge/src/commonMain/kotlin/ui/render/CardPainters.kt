@@ -1,6 +1,7 @@
 package ui.render
 
 import app.CardThemeSpec
+import domain.model.Rank
 import domain.model.Suit
 import korlibs.image.bitmap.Bitmap
 import korlibs.image.color.RGBA
@@ -77,7 +78,7 @@ class FaceCardAnimalPainter(
 ) {
     fun draw(
         parentContainer: Container,
-        rankSymbol: String,
+        rank: Rank,
         suit: Suit,
         x: Double,
         y: Double,
@@ -85,7 +86,7 @@ class FaceCardAnimalPainter(
         height: Double,
         suitAccentColor: RGBA,
     ): View? {
-        val textureKey = faceTextureBaseName(rankSymbol, suit)
+        val textureKey = faceTextureBaseName(rank, suit)
         val slice = textureKey?.let { key ->
             sliceByBaseName?.get(key) ?: sliceByBaseName?.get("$key.png")
         }
@@ -114,7 +115,7 @@ class FaceCardAnimalPainter(
             mouseEnabled = false
         }
         motifContainer.text(
-            text = faceRankLetter(rankSymbol),
+            text = faceRankLetter(rank),
             textSize = 24.0,
             color = suitAccentColor,
         ) {
@@ -125,22 +126,22 @@ class FaceCardAnimalPainter(
         return motifContainer
     }
 
-    private fun faceTextureBaseName(rankSymbol: String, suit: Suit): String? = when (rankSymbol) {
-        "QUEEN" -> when (suit) {
+    private fun faceTextureBaseName(rank: Rank, suit: Suit): String? = when (rank) {
+        Rank.QUEEN -> when (suit) {
             Suit.HEARTS -> "rank_q_heart_card"
             Suit.DIAMONDS -> "rank_q_diamond_card"
             Suit.SPADES -> "rank_q_spade_card"
             Suit.CLUBS -> "queen_head_front_01"
         }
-        "JACK" -> "decor_moon_emblem_01"
-        "KING" -> "queen_crown_large_01"
+        Rank.JACK -> "decor_moon_emblem_01"
+        Rank.KING -> "queen_crown_large_01"
         else -> null
     }
 
-    private fun faceRankLetter(rankSymbol: String): String = when (rankSymbol) {
-        "JACK" -> "J"
-        "QUEEN" -> "Q"
-        "KING" -> "K"
+    private fun faceRankLetter(rank: Rank): String = when (rank) {
+        Rank.JACK -> "J"
+        Rank.QUEEN -> "Q"
+        Rank.KING -> "K"
         else -> "?"
     }
 }

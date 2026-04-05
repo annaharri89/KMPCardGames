@@ -1,10 +1,17 @@
 package ui.render
 
+import domain.model.Rank
 import domain.model.Suit
 import korlibs.image.color.RGBA
 import korlibs.korge.view.Container
 import korlibs.korge.view.solidRect
 
+/**
+ * UI-only bucket for the **center** of a face-up card: pip-style ornament ([NONE]) vs Jack/Queen/King art
+ * ([JACK], [QUEEN], [KING]). [domain.model.Rank] already tells you the rank; this type exists so
+ * [SolitaireBoardRenderer] can pick layout and idle bob in one place via [faceCardAnimalForRank]
+ * instead of scattering `when (rank)` for J/Q/K everywhere.
+ */
 enum class FaceCardAnimal {
     NONE,
     JACK,
@@ -22,10 +29,10 @@ data class SuitOrnamentVariant(
     val secondaryPatternStyle: MicroPatternStyle,
 )
 
-internal fun faceCardAnimalForRankSymbol(rankSymbol: String): FaceCardAnimal = when (rankSymbol) {
-    "JACK" -> FaceCardAnimal.JACK
-    "QUEEN" -> FaceCardAnimal.QUEEN
-    "KING" -> FaceCardAnimal.KING
+internal fun faceCardAnimalForRank(rank: Rank): FaceCardAnimal = when (rank) {
+    Rank.JACK -> FaceCardAnimal.JACK
+    Rank.QUEEN -> FaceCardAnimal.QUEEN
+    Rank.KING -> FaceCardAnimal.KING
     else -> FaceCardAnimal.NONE
 }
 

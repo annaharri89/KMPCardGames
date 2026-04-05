@@ -4,12 +4,20 @@ import domain.model.Card
 import domain.model.CardColor
 import domain.model.GameState
 import domain.model.GameVariant
+import domain.model.Rank
 import domain.model.Suit
 import domain.model.TableauColumn
 
+/** How this card appears in the UI: face-up with a [Rank], or face-down in the tableau. */
+sealed class CardFace {
+    data class Up(val rank: Rank) : CardFace()
+
+    data object Down : CardFace()
+}
+
 data class CardViewModel(
     val suit: Suit,
-    val rankSymbol: String,
+    val face: CardFace,
     val color: CardColor,
 )
 
@@ -63,7 +71,7 @@ object GameRenderModelProjector {
         val hiddenCardMarkers = List(column.hiddenCards.size) {
             CardViewModel(
                 suit = Suit.SPADES,
-                rankSymbol = "HIDDEN",
+                face = CardFace.Down,
                 color = CardColor.BLACK,
             )
         }
@@ -72,7 +80,7 @@ object GameRenderModelProjector {
 
     private fun Card.toCardViewModel(): CardViewModel = CardViewModel(
         suit = suit,
-        rankSymbol = rank.name,
+        face = CardFace.Up(rank = rank),
         color = color,
     )
 }

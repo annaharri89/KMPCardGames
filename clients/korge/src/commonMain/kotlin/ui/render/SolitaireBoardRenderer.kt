@@ -4,7 +4,9 @@ import app.CardTheme
 import app.SolitaireUiState
 import app.cardThemeSpec
 import domain.model.CardColor
+import domain.model.Rank
 import domain.model.Suit
+import domain.readmodel.CardFace
 import domain.readmodel.CardViewModel
 import domain.readmodel.GameRenderModel
 import korlibs.image.color.Colors
@@ -32,7 +34,8 @@ internal fun calculateTableauHitHeight(
     return cardHeight + (max(0, cardCount - 1) * tableauCardOffsetY)
 }
 
-internal fun isHiddenCard(cardViewModel: CardViewModel): Boolean = cardViewModel.rankSymbol == "HIDDEN"
+internal fun isHiddenCard(cardViewModel: CardViewModel): Boolean =
+    cardViewModel.face is CardFace.Down
 
 data class SolitaireRenderedBoard(
     val pileTapTargets: Map<String, SolidRect>,
@@ -436,9 +439,10 @@ class SolitaireBoardRenderer(
             drawHiddenCardPattern(parentContainer)
             return cardRect
         }
+        val visibleRank = (card.face as CardFace.Up).rank
         val rankColor = if (card.color == CardColor.RED) activeThemeSpec.redSuitColor else activeThemeSpec.blackSuitColor
         parentContainer.text(
-            text = rankShortLabel(card.rankSymbol),
+            text = rankShortLabel(visibleRank),
             textSize = activeThemeSpec.rankTextSize,
             color = rankColor,
         ) {
@@ -462,7 +466,7 @@ class SolitaireBoardRenderer(
             symbolWidth = 22.0,
             symbolHeight = 18.0,
         )
-        val faceCardAnimal = faceCardAnimalForRankSymbol(card.rankSymbol)
+        val faceCardAnimal = faceCardAnimalForRank(visibleRank)
         val faceMotifWidth = if (texturePackerSliceByBaseName != null) 84.0 else 62.0
         val faceMotifHeight = if (texturePackerSliceByBaseName != null) 96.0 else 74.0
         val centerMotif: View? = if (faceCardAnimal == FaceCardAnimal.NONE) {
@@ -483,7 +487,7 @@ class SolitaireBoardRenderer(
         } else {
             faceCardAnimalPainter.draw(
                 parentContainer = parentContainer,
-                rankSymbol = card.rankSymbol,
+                rank = visibleRank,
                 suit = card.suit,
                 x = (cardWidth - faceMotifWidth) / 2.0,
                 y = (cardHeight - faceMotifHeight) / 2.0,
@@ -607,23 +611,20 @@ class SolitaireBoardRenderer(
         )
     }
 
-    private fun rankShortLabel(rankSymbol: String): String {
-        return when (rankSymbol) {
-            "ACE" -> "A"
-            "JACK" -> "J"
-            "QUEEN" -> "Q"
-            "KING" -> "K"
-            "TEN" -> "10"
-            "TWO" -> "2"
-            "THREE" -> "3"
-            "FOUR" -> "4"
-            "FIVE" -> "5"
-            "SIX" -> "6"
-            "SEVEN" -> "7"
-            "EIGHT" -> "8"
-            "NINE" -> "9"
-            else -> rankSymbol
-        }
+    private fun rankShortLabel(rank: Rank): String = when (rank) {
+        Rank.ACE -> "A"
+        Rank.TWO -> "2"
+        Rank.THREE -> "3"
+        Rank.FOUR -> "4"
+        Rank.FIVE -> "5"
+        Rank.SIX -> "6"
+        Rank.SEVEN -> "7"
+        Rank.EIGHT -> "8"
+        Rank.NINE -> "9"
+        Rank.TEN -> "10"
+        Rank.JACK -> "J"
+        Rank.QUEEN -> "Q"
+        Rank.KING -> "K"
     }
 
     private fun restoreRootLayerOrderAfterBoardRebuild() {
@@ -689,7 +690,13 @@ class SolitaireBoardRenderer(
     }
 
     private fun stackSignature(cards: List<CardViewModel>): String =
-        cards.joinToString("|") { "${it.rankSymbol}_${it.suit}" }
+        cards.joinToString("|") { card ->
+            val rankToken = when (val f = card.face) {
+                is CardFace.Up -> f.rank.name
+                CardFace.Down -> "DOWN"
+            }
+            "${rankToken}_${card.suit}"
+        }
 
     private fun createDragGhostStack(cards: List<CardViewModel>): Container {
         return Container().addTo(dragLayer).also { ghostContainer ->
