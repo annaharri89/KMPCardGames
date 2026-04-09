@@ -44,8 +44,11 @@ tasks.configureEach {
             "--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED",
             "-Dsun.java2d.opengl=false",
         )
-        if (project.findProperty("foxPuppetPreview") == "true") {
-            systemProperty("foxPuppetPreview", "true")
+        when (project.findProperty("foxPuppetPreview")?.toString()) {
+            "true", "1" -> systemProperty("foxPuppetPreview", "true")
+            "heart" -> systemProperty("foxPuppetPreview", "heart")
+            "queen" -> systemProperty("foxPuppetPreview", "queen")
+            else -> Unit
         }
     }
 }
