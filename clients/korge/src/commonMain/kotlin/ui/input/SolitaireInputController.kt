@@ -3,6 +3,7 @@ package ui.input
 import domain.readmodel.CardViewModel
 import korlibs.korge.input.onClick
 import korlibs.korge.input.onMouseDrag
+import korlibs.korge.view.SolidRect
 import ui.render.BoardDragPreview
 import ui.render.DraggableCardTarget
 import ui.adapter.UiIntent
@@ -69,10 +70,15 @@ internal fun resolvePileIdAtPoint(
  * a multi-card [UiIntent.DragMove] if appropriate.
  *
  * Call [bind] after the renderer built views and hit areas so handlers attach to the right nodes.
- * Toolbar buttons are wired only on the first [bind]; pile and draggable targets are updated on
- * every call so a rebuilt board picks up new views.
+ * Toolbar buttons are wired only on the first [bind]. Pile and card hit targets use **stable** view
+ * instances across [render] calls, so [bind] attaches **one** [onClick]/[onMouseDrag] per view and updates
+ * a fresh `latestRenderedBoard` each time so handlers read current piles and drag metadata.
  */
 class SolitaireInputController {
+    private var latestRenderedBoard: SolitaireRenderedBoard? = null
+    private val pileRectsWithInput = mutableSetOf<SolidRect>()
+    private val cardRectsWithDragInput = mutableSetOf<SolidRect>()
+
     private var selectedSourcePileId: String? = null
     private var selectedSourceCardCount: Int = 1
     private var controlsAreBound = false
@@ -96,6 +102,8 @@ class SolitaireInputController {
         onUndo: () -> Unit,
         onRedo: () -> Unit,
     ) {
+        latestRenderedBoard = renderedBoard
+
         if (!controlsAreBound) {
             renderedBoard.stockButton.onClick {
                 dispatchIntent(UiIntent.Draw)
@@ -129,7 +137,12 @@ class SolitaireInputController {
             }
             controlsAreBound = true
         }
+
+        val currentPileRects = renderedBoard.pileTapTargets.values.toSet()
+        pileRectsWithInput.retainAll { it in currentPileRects }
         renderedBoard.pileTapTargets.forEach { (pileId, pileView) ->
+            if (pileView in pileRectsWithInput) return@forEach
+            pileRectsWithInput.add(pileView)
             pileView.onClick {
                 handlePileTap(
                     tappedPileId = pileId,
@@ -139,10 +152,15 @@ class SolitaireInputController {
                 )
             }
         }
+
+        val currentCardRects = renderedBoard.draggableCardTargets.map { it.cardView }.toSet()
+        cardRectsWithDragInput.retainAll { it in currentCardRects }
         renderedBoard.draggableCardTargets.forEach { draggableCardTarget ->
-            bindTopCardInteraction(
-                draggableCardTarget = draggableCardTarget,
-                renderedBoard = renderedBoard,
+            val cardRect = draggableCardTarget.cardView
+            if (cardRect in cardRectsWithDragInput) return@forEach
+            cardRectsWithDragInput.add(cardRect)
+            bindTopCardInteractionForStableCardRect(
+                cardRect = cardRect,
                 dispatchIntent = dispatchIntent,
                 onSelectionChanged = onSelectionChanged,
                 onDragPreviewChanged = onDragPreviewChanged,
@@ -188,32 +206,38 @@ class SolitaireInputController {
         onSelectionChanged(tapSelectionResolution.nextSelectedSourcePileId)
     }
 
-    private fun bindTopCardInteraction(
-        draggableCardTarget: DraggableCardTarget,
-        renderedBoard: SolitaireRenderedBoard,
+    private fun liveDraggableForCardRect(cardRect: SolidRect): DraggableCardTarget? =
+        latestRenderedBoard?.draggableCardTargets?.firstOrNull { it.cardView === cardRect }
+
+    private fun bindTopCardInteractionForStableCardRect(
+        cardRect: SolidRect,
         dispatchIntent: (UiIntent) -> Unit,
         onSelectionChanged: (String?) -> Unit,
         onDragPreviewChanged: (BoardDragPreview?) -> Unit,
         onDragDropAttempt: (DragDropAttempt) -> Unit,
     ) {
-        draggableCardTarget.cardView.onClick {
+        cardRect.onClick {
+            val live = liveDraggableForCardRect(cardRect) ?: return@onClick
             handlePileTap(
-                tappedPileId = draggableCardTarget.pileId,
-                tappedCardCount = draggableCardTarget.cardCount,
+                tappedPileId = live.pileId,
+                tappedCardCount = live.cardCount,
                 dispatchIntent = dispatchIntent,
                 onSelectionChanged = onSelectionChanged,
             )
         }
 
         var didDragPastThreshold = false
-        draggableCardTarget.cardView.onMouseDrag { dragInfo ->
+        cardRect.onMouseDrag { dragInfo ->
+            val board = latestRenderedBoard ?: return@onMouseDrag
+            val live = liveDraggableForCardRect(cardRect) ?: return@onMouseDrag
+
             if (dragInfo.start) {
                 didDragPastThreshold = false
             }
             if (!didDragPastThreshold && (abs(dragInfo.dx) > 8.0 || abs(dragInfo.dy) > 8.0)) {
                 didDragPastThreshold = true
-                selectedSourcePileId = draggableCardTarget.pileId
-                selectedSourceCardCount = draggableCardTarget.cardCount
+                selectedSourcePileId = live.pileId
+                selectedSourceCardCount = live.cardCount
             }
             if (!didDragPastThreshold) {
                 return@onMouseDrag
@@ -222,17 +246,17 @@ class SolitaireInputController {
             val destinationPileId = findPileIdAt(
                 x = dragInfo.cx,
                 y = dragInfo.cy,
-                pileHitAreas = renderedBoard.pileHitAreas.values,
+                pileHitAreas = board.pileHitAreas.values,
             )
             if (dragInfo.end) {
                 onDragPreviewChanged(null)
-                if (destinationPileId != null && destinationPileId != draggableCardTarget.pileId) {
+                if (destinationPileId != null && destinationPileId != live.pileId) {
                     onDragDropAttempt(
                         DragDropAttempt(
-                            sourcePileId = draggableCardTarget.pileId,
+                            sourcePileId = live.pileId,
                             destinationPileId = destinationPileId,
-                            cardCount = draggableCardTarget.cardCount,
-                            card = draggableCardTarget.card,
+                            cardCount = live.cardCount,
+                            card = live.card,
                             dropX = dragInfo.cx,
                             dropY = dragInfo.cy,
                         ),
@@ -244,7 +268,7 @@ class SolitaireInputController {
             }
             onDragPreviewChanged(
                 BoardDragPreview(
-                    stackCards = draggableCardTarget.stackCards,
+                    stackCards = live.stackCards,
                     x = dragInfo.cx,
                     y = dragInfo.cy,
                 ),

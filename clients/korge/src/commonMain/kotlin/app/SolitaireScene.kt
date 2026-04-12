@@ -1,16 +1,22 @@
 package app
 
+import korlibs.image.format.readBitmap
 import korlibs.io.async.launchImmediately
 import korlibs.korge.view.Stage
 import korlibs.korge.view.solidRect
 import ui.adapter.UiIntent
 import ui.input.SolitaireInputController
+import ui.render.FoxHeartPuppetSheet
+import ui.render.FoxPuppetSheetLayout
+import ui.render.FoxSpadePuppetSheet
 import ui.render.SolitaireBoardRenderer
 import ui.render.expectedTopCardYForSolitairePile
 
 /**
  * KorGE entry for the playable solitaire screen: background, [SolitaireGameStore], [SolitaireBoardRenderer],
- * and [SolitaireInputController]. Card faces use text and shape fallbacks (no card atlas); the board
+ * and [SolitaireInputController]. Card faces use text and shape fallbacks unless a TexturePacker atlas,
+ * [scripts/render_simple_suit_pips.py] assets (621×586): heart, diamond, spade, club PNGs under `debug/`, or the debug fox
+ * puppet sheets (spade + heart) are loaded; the board
  * re-renders and input re-binds after each state change. Drag-drop runs a short [SolitaireBoardRenderer.animateCardTravel]
  * tween before applying the final layout.
  */
@@ -18,6 +24,7 @@ class SolitaireScene {
     companion object {
         private const val SCENE_LOG_TAG = "KawaiiThemeScene"
         private const val MOVE_ANIMATION_LOG_TAG = "KawaiiThemeMoveAnimation"
+        private const val SIMPLE_SUIT_PIP_LOG_TAG = "SimpleSuitPip"
     }
 
     /** Attaches the full solitaire UI tree and handlers to [rootContainer] (usually the KorGE stage). */
@@ -146,6 +153,73 @@ class SolitaireScene {
             }
 
             renderAndBind()
+
+            launchImmediately(coroutineContext) {
+                suspend fun loadPip(path: String) = try {
+                    resources.root[path].readBitmap()
+                } catch (throwable: Throwable) {
+                    println(
+                        "[$SIMPLE_SUIT_PIP_LOG_TAG] loadFailed path=$path " +
+                            "message=${throwable.message} cause=${throwable::class.simpleName}",
+                    )
+                    null
+                }
+
+                val heartPip = loadPip("debug/fox_queen_style_heart_suit_pip.png")
+                val diamondPip = loadPip("debug/simple_diamond_suit_pip.png")
+                val spadePip = loadPip("debug/spade_pip.png")
+                val clubPip = loadPip("debug/simple_club_suit_pip.png")
+                solitaireBoardRenderer.setSimpleSuitPipBitmaps(heartPip, diamondPip, spadePip, clubPip)
+                renderAndBind(bindInput = true)
+            }
+
+            launchImmediately(coroutineContext) {
+                val sheetPath = "debug/fox_spade_puppet_sheet.png"
+                runCatching {
+                    val sheetBitmap = resources.root[sheetPath].readBitmap()
+                    if (sheetBitmap.width != FoxPuppetSheetLayout.DEFAULT_SHEET_WIDTH_PX ||
+                        sheetBitmap.height != FoxPuppetSheetLayout.DEFAULT_SHEET_HEIGHT_PX
+                    ) {
+                        println(
+                            "[${FoxSpadePuppetSheet.logTag}] sheetSizeExpected=" +
+                                "${FoxPuppetSheetLayout.DEFAULT_SHEET_WIDTH_PX}x${FoxPuppetSheetLayout.DEFAULT_SHEET_HEIGHT_PX} " +
+                                "actual=${sheetBitmap.width}x${sheetBitmap.height}",
+                        )
+                    }
+                    val slices = FoxSpadePuppetSheet.buildSlices(sheetBitmap)
+                    solitaireBoardRenderer.setFoxSpadePuppetSlices(slices)
+                    renderAndBind(bindInput = true)
+                }.onFailure { throwable ->
+                    println(
+                        "[${FoxSpadePuppetSheet.logTag}] sheetLoadFailed path=$sheetPath " +
+                            "message=${throwable.message} cause=${throwable::class.simpleName}",
+                    )
+                }
+            }
+
+            launchImmediately(coroutineContext) {
+                val heartPath = "debug/fox_heart_puppet_sheet.png"
+                runCatching {
+                    val sheetBitmap = resources.root[heartPath].readBitmap()
+                    if (sheetBitmap.width != FoxPuppetSheetLayout.DEFAULT_SHEET_WIDTH_PX ||
+                        sheetBitmap.height != FoxPuppetSheetLayout.DEFAULT_SHEET_HEIGHT_PX
+                    ) {
+                        println(
+                            "[${FoxHeartPuppetSheet.logTag}] sheetSizeExpected=" +
+                                "${FoxPuppetSheetLayout.DEFAULT_SHEET_WIDTH_PX}x${FoxPuppetSheetLayout.DEFAULT_SHEET_HEIGHT_PX} " +
+                                "actual=${sheetBitmap.width}x${sheetBitmap.height}",
+                        )
+                    }
+                    val slices = FoxHeartPuppetSheet.buildSlices(sheetBitmap)
+                    solitaireBoardRenderer.setFoxHeartPuppetSlices(slices)
+                    renderAndBind(bindInput = true)
+                }.onFailure { throwable ->
+                    println(
+                        "[${FoxHeartPuppetSheet.logTag}] sheetLoadFailed path=$heartPath " +
+                            "message=${throwable.message} cause=${throwable::class.simpleName}",
+                    )
+                }
+            }
         }
     }
 }

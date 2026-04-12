@@ -1,7 +1,9 @@
 package ui.render
 
 import domain.model.CardColor
+import domain.model.Rank
 import domain.model.Suit
+import domain.readmodel.CardFace
 import domain.readmodel.CardViewModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,15 +40,15 @@ class SolitaireBoardRendererTest {
     }
 
     @Test
-    fun isHiddenCard_matchesHiddenMarkerOnly() {
+    fun isHiddenCard_trueOnlyForCardFaceDown() {
         val hidden = CardViewModel(
             suit = Suit.SPADES,
-            rankSymbol = "HIDDEN",
+            face = CardFace.Down,
             color = CardColor.BLACK,
         )
         val visible = CardViewModel(
             suit = Suit.HEARTS,
-            rankSymbol = "ACE",
+            face = CardFace.Up(rank = Rank.ACE),
             color = CardColor.RED,
         )
         assertTrue(isHiddenCard(hidden))
