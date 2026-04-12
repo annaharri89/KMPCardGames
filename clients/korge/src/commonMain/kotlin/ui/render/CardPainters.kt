@@ -192,7 +192,7 @@ internal fun mountFoxQueenSpadeAnimatedBoardMotif(
         width = width,
         height = height,
         slotKey = slotKey,
-        runtime = foxQueenPuppetBoardRuntimeSpade(slices),
+        runtime = foxQueenPuppetBoardRuntime(FoxSpadePuppetSheet, slices, "fox_spade_card_puppet_frame"),
     )
 
 data class FaceCardPuppetDrawContext(
@@ -358,7 +358,7 @@ class FaceCardAnimalPainter(
         }
         if (rank == Rank.QUEEN && suit == Suit.HEARTS && foxHeartPuppetSlices != null) {
             val ctx = puppetDrawContext
-            val heartRuntime = foxQueenPuppetBoardRuntimeHeart(foxHeartPuppetSlices)
+            val heartRuntime = foxQueenPuppetBoardRuntime(FoxHeartPuppetSheet, foxHeartPuppetSlices, "fox_heart_card_puppet_frame")
             val animator = if (ctx != null && ctx.animateFoxQueenSpade) {
                 mountFoxQueenPuppetAnimatedBoardMotif(
                     hub = ctx.hub,

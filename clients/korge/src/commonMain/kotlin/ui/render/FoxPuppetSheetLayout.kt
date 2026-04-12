@@ -37,6 +37,17 @@ object FoxPuppetSheetLayout {
          * Use when frames sit on different sheet rows but should align on-card; empty list or zeros = shared [earY].
          */
         val earPairExtraSheetYPx: List<Double> = listOf(0.0, 35.0),
+        /**
+         * Per neck frame index (same order as [Spec.neckRects]): optional extra X in **stage pixels** after
+         * junction alignment and [neckNonFirstFrameExtraStageX]; negative moves left. Usually empty; use the scalar
+         * for “all swallow frames except the first.”
+         */
+        val neckFrameExtraStageX: List<Double> = emptyList(),
+        /**
+         * Added to every neck frame after the first (index != 0): extra X in **stage pixels**; negative moves left.
+         * Index 0 stays the junction reference; all later swallow steps share this nudge.
+         */
+        val neckNonFirstFrameExtraStageX: Double = 0.0,
     )
 
     data class PuppetSlices(
@@ -70,6 +81,15 @@ object FoxPuppetSheetLayout {
         val blinkTransitionFps: Double,
         val blinkEyesClosedHoldSec: Double,
         val tailWagPingPongIndices: List<Int>,
+        val tailWagFrameDurationSec: Double,
+        val earWagPingPongIndices: List<Int>,
+        val earWagFrameDurationSec: Double,
+        val microAnimIdleGapMinSec: Double,
+        val microAnimIdleGapMaxSec: Double,
+        val microAnimNeckStepDurationSec: Double,
+        val microAnimWeightBlink: Int,
+        val microAnimWeightEar: Int,
+        val microAnimWeightNeck: Int,
     )
 
     /** Spade fox: equal-size head grid. Regenerate helpers: `clients/korge/scripts/regenerate_fox_head_slices.py`. */
@@ -115,6 +135,15 @@ object FoxPuppetSheetLayout {
         blinkTransitionFps = 12.0,
         blinkEyesClosedHoldSec = 0.4,
         tailWagPingPongIndices = listOf(0, 1, 2, 3, 4, 3, 2, 1),
+        tailWagFrameDurationSec = 0.3,
+        earWagPingPongIndices = listOf(0, 1, 0, 1, 0),
+        earWagFrameDurationSec = 0.1,
+        microAnimIdleGapMinSec = 3.0,
+        microAnimIdleGapMaxSec = 8.0,
+        microAnimNeckStepDurationSec = 0.1,
+        microAnimWeightBlink = 3,
+        microAnimWeightEar = 2,
+        microAnimWeightNeck = 2,
     )
 
     val heartSheetSpec = Spec(
@@ -134,7 +163,7 @@ object FoxPuppetSheetLayout {
         tailRects = spadeSheetSpec.tailRects,
         neckRects = listOf(
             FoxPuppetSheetRect(199, 589, 206, 159),//2nd
-            FoxPuppetSheetRect(16, 589, 206, 159),//1st
+            FoxPuppetSheetRect(20, 589, 206, 159),//1st
             //FoxPuppetSheetRect(407, 589, 206, 159),//3rd
             //FoxPuppetSheetRect(582, 589, 206, 159),//4th
             //FoxPuppetSheetRect(804, 589, 206, 159),//5th
@@ -144,18 +173,28 @@ object FoxPuppetSheetLayout {
             bodyScaleMultiplier = 1.18,
             bodyX = 378.0,
             bodyY = 88.0,
-            neckX = 540.0,
+            neckX = 530.0,
             neckY = 178.0,
             earX = 540.0,
             earY = -48.0,
             headX = 529.0,
             headY = -36.0,
             earPairExtraSheetYPx = emptyList(),
+            neckNonFirstFrameExtraStageX = -12.0,
         ),
         blinkHeadFrameIndices = listOf(0, 2, 0),
         blinkTransitionFps = 12.0,
         blinkEyesClosedHoldSec = .4,
         tailWagPingPongIndices = listOf(0, 1, 2, 3, 4, 3, 2, 1),
+        tailWagFrameDurationSec = 0.3,
+        earWagPingPongIndices = listOf(0, 1, 2, 3, 2, 1),
+        earWagFrameDurationSec = 0.1,
+        microAnimIdleGapMinSec = 3.0,
+        microAnimIdleGapMaxSec = 8.0,
+        microAnimNeckStepDurationSec = 3.0,
+        microAnimWeightBlink = 3,
+        microAnimWeightEar = 2,
+        microAnimWeightNeck = 2,
     )
 
     fun buildSlices(sheetBitmap: Bitmap, spec: Spec): PuppetSlices {
@@ -190,7 +229,13 @@ object FoxPuppetSheetLayout {
     ): Double {
         val referenceJunctionLeftX = slices.neckJunctionLeftX[0]
         val frameJunctionLeftX = slices.neckJunctionLeftX[neckFrameIndex]
-        return offsets.neckX + (referenceJunctionLeftX - frameJunctionLeftX) * offsets.displayScale
+        val perFrameExtraX = offsets.neckFrameExtraStageX.getOrElse(neckFrameIndex) { 0.0 }
+        val nonFirstExtraX =
+            if (neckFrameIndex != 0) offsets.neckNonFirstFrameExtraStageX else 0.0
+        return offsets.neckX +
+            (referenceJunctionLeftX - frameJunctionLeftX) * offsets.displayScale +
+            perFrameExtraX +
+            nonFirstExtraX
     }
 
     fun earLayerStageY(
@@ -261,8 +306,13 @@ object FoxPuppetSheetLayout {
         var minLeft = Double.POSITIVE_INFINITY
         var maxRight = Double.NEGATIVE_INFINITY
         for (index in slices.necks.indices) {
+            val perFrameExtraX = offsets.neckFrameExtraStageX.getOrElse(index) { 0.0 }
+            val nonFirstExtraX = if (index != 0) offsets.neckNonFirstFrameExtraStageX else 0.0
             val left =
-                offsets.neckX + (referenceJunctionLeftX - slices.neckJunctionLeftX[index]) * scale
+                offsets.neckX +
+                    (referenceJunctionLeftX - slices.neckJunctionLeftX[index]) * scale +
+                    perFrameExtraX +
+                    nonFirstExtraX
             val right = left + slices.necks[index].width * scale
             minLeft = kotlin.math.min(minLeft, left)
             maxRight = kotlin.math.max(maxRight, right)

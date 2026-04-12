@@ -13,22 +13,15 @@ data class FoxQueenPuppetBoardRuntime(
     val bitmapSliceLabel: String,
 )
 
-fun foxQueenPuppetBoardRuntimeSpade(slices: FoxPuppetSheetLayout.PuppetSlices): FoxQueenPuppetBoardRuntime =
-    FoxQueenPuppetBoardRuntime(
-        compositeOffsets = FoxSpadePuppetSheet.compositeOffsets,
-        tailWagPingPongIndices = FoxSpadePuppetSheet.tailWagPingPongIndices,
-        tailFrameDurationSec = FoxSpadePuppetSheet.TAIL_WAG_FRAME_DURATION_SEC,
-        microAnimConfig = foxSpadePuppetMicroAnimConfig(slices.necks.size),
-        earPairCount = slices.earPairs.size,
-        bitmapSliceLabel = "fox_spade_card_puppet_frame",
-    )
-
-fun foxQueenPuppetBoardRuntimeHeart(slices: FoxPuppetSheetLayout.PuppetSlices): FoxQueenPuppetBoardRuntime =
-    FoxQueenPuppetBoardRuntime(
-        compositeOffsets = FoxHeartPuppetSheet.compositeOffsets,
-        tailWagPingPongIndices = FoxHeartPuppetSheet.tailWagPingPongIndices,
-        tailFrameDurationSec = FoxHeartPuppetSheet.TAIL_WAG_FRAME_DURATION_SEC,
-        microAnimConfig = foxHeartPuppetMicroAnimConfig(slices.earPairs.size, slices.necks.size),
-        earPairCount = slices.earPairs.size,
-        bitmapSliceLabel = "fox_heart_card_puppet_frame",
-    )
+fun foxQueenPuppetBoardRuntime(
+    sheet: FoxPuppetSheetFacade,
+    slices: FoxPuppetSheetLayout.PuppetSlices,
+    bitmapSliceLabel: String,
+): FoxQueenPuppetBoardRuntime = FoxQueenPuppetBoardRuntime(
+    compositeOffsets = sheet.compositeOffsets,
+    tailWagPingPongIndices = sheet.tailWagPingPongIndices,
+    tailFrameDurationSec = sheet.spec.tailWagFrameDurationSec,
+    microAnimConfig = foxPuppetMicroAnimConfig(sheet, slices.necks.size),
+    earPairCount = slices.earPairs.size,
+    bitmapSliceLabel = bitmapSliceLabel,
+)

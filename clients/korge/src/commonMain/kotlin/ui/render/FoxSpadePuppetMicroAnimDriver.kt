@@ -22,40 +22,24 @@ data class PuppetMicroAnimConfig(
     val weightNeck: Int,
 )
 
-fun foxSpadePuppetMicroAnimConfig(neckFrameCount: Int): PuppetMicroAnimConfig =
+fun foxPuppetMicroAnimConfig(sheet: FoxPuppetSheetFacade, neckFrameCount: Int): PuppetMicroAnimConfig =
     PuppetMicroAnimConfig(
-        blinkHeadFrameIndices = FoxSpadePuppetSheet.blinkHeadFrameIndices,
-        blinkTransitionFps = FoxSpadePuppetSheet.blinkTransitionFps,
-        blinkEyesClosedHoldSec = FoxSpadePuppetSheet.blinkEyesClosedHoldSec,
-        earPassPairIndices = FoxSpadePuppetSheet.earWagPingPongIndices,
-        earFrameDurationSec = FoxSpadePuppetSheet.EAR_FRAME_DURATION_SEC,
-        neckFrameDurationSec = FoxSpadePuppetSheet.MICRO_ANIM_NECK_STEP_DURATION_SEC,
+        blinkHeadFrameIndices = sheet.blinkHeadFrameIndices,
+        blinkTransitionFps = sheet.blinkTransitionFps,
+        blinkEyesClosedHoldSec = sheet.blinkEyesClosedHoldSec,
+        earPassPairIndices = sheet.earWagPingPongIndices,
+        earFrameDurationSec = sheet.spec.earWagFrameDurationSec,
+        neckFrameDurationSec = sheet.spec.microAnimNeckStepDurationSec,
         neckAdvanceCountPerSwallow = neckFrameCount,
-        idleGapMinSec = FoxSpadePuppetSheet.MICRO_ANIM_IDLE_GAP_MIN_SEC,
-        idleGapMaxSec = FoxSpadePuppetSheet.MICRO_ANIM_IDLE_GAP_MAX_SEC,
-        weightBlink = FoxSpadePuppetSheet.MICRO_ANIM_WEIGHT_BLINK,
-        weightEar = FoxSpadePuppetSheet.MICRO_ANIM_WEIGHT_EAR,
-        weightNeck = FoxSpadePuppetSheet.MICRO_ANIM_WEIGHT_NECK,
-    )
-
-fun foxHeartPuppetMicroAnimConfig(earPairCount: Int, neckFrameCount: Int): PuppetMicroAnimConfig =
-    PuppetMicroAnimConfig(
-        blinkHeadFrameIndices = FoxHeartPuppetSheet.blinkHeadFrameIndices,
-        blinkTransitionFps = FoxHeartPuppetSheet.blinkTransitionFps,
-        blinkEyesClosedHoldSec = FoxHeartPuppetSheet.blinkEyesClosedHoldSec,
-        earPassPairIndices = earPassIndicesForEarPairCount(earPairCount),
-        earFrameDurationSec = FoxHeartPuppetSheet.EAR_FRAME_DURATION_SEC,
-        neckFrameDurationSec = FoxHeartPuppetSheet.MICRO_ANIM_NECK_STEP_DURATION_SEC,
-        neckAdvanceCountPerSwallow = neckFrameCount,
-        idleGapMinSec = FoxHeartPuppetSheet.MICRO_ANIM_IDLE_GAP_MIN_SEC,
-        idleGapMaxSec = FoxHeartPuppetSheet.MICRO_ANIM_IDLE_GAP_MAX_SEC,
-        weightBlink = FoxHeartPuppetSheet.MICRO_ANIM_WEIGHT_BLINK,
-        weightEar = FoxHeartPuppetSheet.MICRO_ANIM_WEIGHT_EAR,
-        weightNeck = FoxHeartPuppetSheet.MICRO_ANIM_WEIGHT_NECK,
+        idleGapMinSec = sheet.spec.microAnimIdleGapMinSec,
+        idleGapMaxSec = sheet.spec.microAnimIdleGapMaxSec,
+        weightBlink = sheet.spec.microAnimWeightBlink,
+        weightEar = sheet.spec.microAnimWeightEar,
+        weightNeck = sheet.spec.microAnimWeightNeck,
     )
 
 /**
- * One symmetric pass: 0..n-1 then n-2..0 (for n=2 yields [0,1,0] like [FoxSpadePuppetSheet.earWagPingPongIndices]).
+ * One symmetric pass: 0..n-1 then n-2..0 (for n=2 yields [0,1,0]).
  */
 fun earPassIndicesForEarPairCount(earPairCount: Int): List<Int> {
     if (earPairCount <= 1) return List(earPairCount.coerceAtLeast(1)) { 0 }
