@@ -4,10 +4,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.kmpexample.korge.android"
+    namespace = "dev.harrisonsoftware.KMPCardGames.korge.android"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.example.kmpexample.korge"
+        applicationId = "dev.harrisonsoftware.KMPCardGames.korge"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

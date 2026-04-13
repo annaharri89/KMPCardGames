@@ -36,7 +36,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.kmpexample.shared"
+    namespace = "dev.harrisonsoftware.KMPCardGames.shared"
     compileSdk = 35
     defaultConfig {
         minSdk = 24

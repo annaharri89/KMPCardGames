@@ -7,7 +7,7 @@ plugins {
 }
 
 korge {
-    id = "com.example.kmpexample.clients.korge"
+    id = "dev.harrisonsoftware.KMPCardGames.clients.korge"
     name = "KorgeClient"
     title = "KMP Playable V1 - Solitaire"
     icon = file("src/commonMain/resources/app-icon.png")
