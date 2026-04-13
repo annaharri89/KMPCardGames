@@ -1,55 +1,52 @@
+import korlibs.korge.gradle.*
+import org.gradle.api.tasks.JavaExec
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+
 plugins {
-    kotlin("multiplatform") version "2.0.21"
-    id("com.android.library") version "8.5.2"
+    id("com.soywiz.korge.library")
 }
 
-kotlin {
-    androidTarget()
-    jvm("desktop") {
-        mainRun {
-            mainClass = "MainKt"
-        }
-    }
-    js(IR) {
-        browser()
-        binaries.executable()
-    }
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-
-    sourceSets {
-        commonMain.dependencies {
-            implementation(project(":shared"))
-            implementation("com.soywiz.korge:korge:5.1.0")
-        }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-        }
-    }
+korge {
+    id = "com.example.kmpexample.clients.korge"
+    name = "KorgeClient"
+    title = "KMP Playable V1 - Solitaire"
+    icon = file("src/commonMain/resources/app-icon.png")
+    preferredIphoneSimulatorVersion = 16
+    jvmTarget = "17"
+    androidSdk(compileSdk = 35, minSdk = 24, targetSdk = 35)
+    targetJvm()
+    targetJs()
+    targetIos()
+    targetAndroid()
+    dependencyProject(":shared")
 }
 
-android {
-    namespace = "com.example.kmpexample.clients.korge"
-    compileSdk = 35
-    defaultConfig {
-        minSdk = 24
+dependencies {
+    add("commonTestImplementation", kotlin("test"))
+}
+
+extensions.configure<KotlinMultiplatformExtension>("kotlin") {
+    sourceSets.named("jvmMain") {
+        kotlin.srcDir("src/desktopMain/kotlin")
     }
 }
 
-tasks.configureEach {
-    if (name == "desktopRun" && this is JavaExec) {
-        jvmArgs(
-            "--add-opens=java.desktop/sun.java2d.opengl=ALL-UNNAMED",
-            "--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED",
-            "-Dsun.java2d.opengl=false",
-        )
-        when (project.findProperty("foxPuppetPreview")?.toString()) {
-            "true", "1" -> systemProperty("foxPuppetPreview", "true")
-            "heart" -> systemProperty("foxPuppetPreview", "heart")
-            "queen" -> systemProperty("foxPuppetPreview", "queen")
-            else -> Unit
-        }
+gradle.taskGraph.whenReady {
+    val jvmRun = tasks.findByName("jvmRun") as? JavaExec ?: return@whenReady
+    if (jvmRun !in gradle.taskGraph.allTasks) return@whenReady
+    jvmRun.mainClass.set("MainKt")
+    jvmRun.jvmArgs(
+        "--add-opens=java.desktop/sun.java2d.opengl=ALL-UNNAMED",
+        "--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED",
+        "-Dsun.java2d.opengl=false",
+    )
+    when (project.findProperty("foxPuppetPreview")?.toString()) {
+        "true", "1" -> jvmRun.systemProperty("foxPuppetPreview", "true")
+        "heart" -> jvmRun.systemProperty("foxPuppetPreview", "heart")
+        "queen" -> jvmRun.systemProperty("foxPuppetPreview", "queen")
+        else -> Unit
     }
 }
 
+tasks.register("runJvm") { dependsOn("jvmRun") }
+tasks.register("desktopRun") { dependsOn("jvmRun") }
