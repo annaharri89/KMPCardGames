@@ -1,4 +1,4 @@
-package com.example.kmpexample.korge.android
+package dev.harrisonsoftware.KMPCardGames.korge.android
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
