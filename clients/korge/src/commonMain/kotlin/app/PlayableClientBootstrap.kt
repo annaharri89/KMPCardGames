@@ -13,6 +13,7 @@ fun playableClientKorgeModule(
     Korge(
         windowSize = windowSize,
         title = title,
+        icon = "app-icon.png",
         main = {
             installPlayableClient(
                 foxPuppetPreviewFromEnvironment = foxPuppetPreviewFromEnvironment,

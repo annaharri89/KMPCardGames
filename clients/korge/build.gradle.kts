@@ -10,6 +10,7 @@ korge {
     id = "com.example.kmpexample.clients.korge"
     name = "KorgeClient"
     title = "KMP Playable V1 - Solitaire"
+    icon = file("src/commonMain/resources/app-icon.png")
     preferredIphoneSimulatorVersion = 16
     jvmTarget = "17"
     androidSdk(compileSdk = 35, minSdk = 24, targetSdk = 35)
