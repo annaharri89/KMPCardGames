@@ -62,6 +62,21 @@ class SolitaireRuleSetTest {
     }
 
     @Test
+    fun invalidMoveFromWasteToMismatchedFoundationSuit_isRejected() {
+        val state = baseSolitaireState(
+            wasteCards = listOf(card(Suit.SPADES, Rank.ACE)),
+        )
+        val validation = solitaireRuleSet.validate(
+            action = GameAction.MoveCards(
+                from = PileRef.Waste,
+                to = PileRef.Foundation(Suit.HEARTS),
+            ),
+            state = state,
+        )
+        assertFalse(validation.isValid)
+    }
+
+    @Test
     fun moveSequenceFromTableauToTableau_promotesHiddenCard() {
         val sourceColumn = TableauColumn(
             hiddenCards = listOf(card(Suit.CLUBS, Rank.ACE)),
