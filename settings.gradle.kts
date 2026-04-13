@@ -17,4 +17,3 @@ rootProject.name = "kmpExample"
 
 include(":shared")
 include(":clients:korge")
-include(":clients:korge-android")
