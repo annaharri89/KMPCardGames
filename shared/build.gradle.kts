@@ -1,10 +1,20 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    kotlin("multiplatform") version "2.0.21"
-    id("com.android.library") version "8.5.2"
+    kotlin("multiplatform")
+    id("com.android.library")
 }
 
 kotlin {
-    androidTarget()
+    androidTarget {
+        compilations.configureEach {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_17)
+                }
+            }
+        }
+    }
     jvm("desktop")
     js(IR) {
         browser()
@@ -12,6 +22,9 @@ kotlin {
     iosX64()
     iosArm64()
     iosSimulatorArm64()
+    tvosArm64()
+    tvosX64()
+    tvosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -27,5 +40,9 @@ android {
     compileSdk = 35
     defaultConfig {
         minSdk = 24
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
