@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Avoid windowFullscreen so layout stays above gesture nav / system bars (see MainActivity). -->
     <style name="Theme.KmpSolitaire" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>

@@ -1,4 +1,4 @@
-package dev.harrisonsoftware.KMPCardGames.korge.android
+package dev.harrisonsoftware.KMPCardGames.clients.korge
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
@@ -9,7 +9,7 @@ import app.playableClientKorgeModule
 import korlibs.korge.android.KorgeAndroidView
 import korlibs.math.geom.Size
 
-class MainActivity : Activity() {
+class SolitaireActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
