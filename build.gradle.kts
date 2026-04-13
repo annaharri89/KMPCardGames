@@ -2,8 +2,8 @@ plugins {
     base
     kotlin("multiplatform") version "2.0.21" apply false
     kotlin("android") version "2.0.21" apply false
-    id("com.android.library") version "8.5.2" apply false
-    id("com.android.application") version "8.5.2" apply false
+    id("com.android.library") version "8.6.1" apply false
+    id("com.android.application") version "8.6.1" apply false
     id("com.soywiz.korge") version "6.0.0" apply false
     id("com.soywiz.korge.library") version "6.0.0" apply false
 }
