@@ -2,10 +2,7 @@ package app
 
 import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
-
-enum class CardTheme {
-    KAWAII_NATURE,
-}
+import presentation.solitaire.CardTheme
 
 data class CardThemeSpec(
     val boardBackgroundColor: RGBA,
@@ -25,7 +22,7 @@ data class CardThemeSpec(
 )
 
 fun cardThemeSpec(theme: CardTheme): CardThemeSpec = when (theme) {
-    CardTheme.KAWAII_NATURE -> CardThemeSpec(
+    CardTheme.REGAL_ANIMALS -> CardThemeSpec(
         boardBackgroundColor = Colors["#2d4a3e"],
         invalidMoveOverlayColor = Colors["#ff6b6b"],
         shadowAlpha = 0.35,

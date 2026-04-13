@@ -1,6 +1,6 @@
 package ui.input
 
-import ui.adapter.UiIntent
+import presentation.solitaire.UiIntent
 import ui.render.PileHitArea
 import kotlin.test.Test
 import kotlin.test.assertEquals
