@@ -29,7 +29,11 @@ private fun createFoxQueenPuppetMotifScaledInner(
     height: Double,
     compositeOffsets: FoxPuppetSheetLayout.CompositeOffsets,
 ): FoxMotifScaledInner {
-    val bounds = FoxPuppetSheetLayout.designBounds(compositeOffsets, slices)
+    val bounds = FoxPuppetSheetLayout.designBounds(
+        compositeOffsets,
+        slices,
+        includeTailInDesignBounds = FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif,
+    )
     val uniformScale = min(width / bounds.width, height / bounds.height)
     val inner = Container().addTo(motifContainer)
     inner.x = (width - bounds.width * uniformScale) / 2.0
@@ -71,7 +75,9 @@ internal fun layoutFoxQueenPuppetBoardMotif(
         }
     }
 
-    placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    if (FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif) {
+        placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    }
     val bodyLayerScale = offsets.displayScale * offsets.bodyScaleMultiplier
     placeFoxPuppetLayer(slices.body, offsets.bodyX, offsets.bodyY, layerScale = bodyLayerScale)
     placeFoxPuppetLayer(
@@ -111,6 +117,8 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
     height: Double,
     slotKey: String,
     runtime: FoxQueenPuppetBoardRuntime,
+    blinkOnlyMicroAnims: Boolean = false,
+    animateTailWag: Boolean = true,
 ): FoxSpadePuppetCardAnimator {
     val kit = createFoxQueenPuppetMotifScaledInner(
         motifContainer,
@@ -142,7 +150,12 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
             this.alpha = alpha
         }
 
-    val tailLayer = placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    val tailLayer =
+        if (FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif) {
+            placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+        } else {
+            null
+        }
     val bodyLayerScale = offsets.displayScale * offsets.bodyScaleMultiplier
     placeFoxPuppetLayer(slices.body, offsets.bodyX, offsets.bodyY, layerScale = bodyLayerScale)
     val neckLayer = placeFoxPuppetLayer(
@@ -174,6 +187,8 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
         phaseJitterSec = jitter,
         motifBoundsLeft = bounds.left,
         motifBoundsTop = bounds.top,
+        animateTailWag = animateTailWag,
+        blinkOnlyMicroAnims = blinkOnlyMicroAnims,
     )
 }
 
@@ -368,6 +383,8 @@ class FaceCardAnimalPainter(
                     height = height,
                     slotKey = ctx.slotKey,
                     runtime = heartRuntime,
+                    blinkOnlyMicroAnims = FoxHeartQueenAnimationTemp.suppressNonBlinkCardAnimations,
+                    animateTailWag = !FoxHeartQueenAnimationTemp.suppressNonBlinkCardAnimations,
                 )
             } else {
                 layoutFoxQueenPuppetBoardMotif(

@@ -252,7 +252,11 @@ object FoxPuppetSheetLayout {
     @Suppress("UNUSED_PARAMETER")
     fun headLayerLeftX(offsets: CompositeOffsets, headFrameIndex: Int): Double = offsets.headX
 
-    fun designBounds(offsets: CompositeOffsets, slices: PuppetSlices): DesignBounds {
+    fun designBounds(
+        offsets: CompositeOffsets,
+        slices: PuppetSlices,
+        includeTailInDesignBounds: Boolean = true,
+    ): DesignBounds {
         val s = offsets.displayScale
         val bodyS = s * offsets.bodyScaleMultiplier
         fun rect(left: Double, top: Double, pixelWidth: Int, pixelHeight: Int): DesignBounds =
@@ -283,13 +287,16 @@ object FoxPuppetSheetLayout {
         val earPairCount = slices.earPairs.size
         val neckBounds = neckScreenBounds(offsets, slices)
         val earBounds = earScreenBounds(offsets, slices, earPairCount)
-        val layers = listOf(
-            rect(offsets.tailX, offsets.tailY, slices.tails.first().width, slices.tails.first().height),
-            bodyBounds,
-            neckBounds,
-            earBounds,
-            headBounds,
-        )
+        val tailBounds =
+            rect(offsets.tailX, offsets.tailY, slices.tails.first().width, slices.tails.first().height)
+        val layers =
+            buildList {
+                if (includeTailInDesignBounds) add(tailBounds)
+                add(bodyBounds)
+                add(neckBounds)
+                add(earBounds)
+                add(headBounds)
+            }
         return layers.reduce { acc, r ->
             DesignBounds(
                 kotlin.math.min(acc.left, r.left),

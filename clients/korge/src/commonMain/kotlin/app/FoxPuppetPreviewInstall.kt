@@ -16,6 +16,7 @@ import korlibs.math.geom.Anchor2D
 import korlibs.math.geom.slice.RectSlice
 import ui.render.FoxPuppetSheetFacade
 import ui.render.FoxPuppetSheetLayout
+import ui.render.FoxQueenPuppetBoardTailVisibility
 import ui.render.FoxSpadePuppetMicroAnimDriver
 import ui.render.foxPuppetMicroAnimConfig
 import kotlin.random.Random
@@ -97,11 +98,28 @@ fun Stage.installFoxPuppetPreview(
             target.bitmap = slice
         }
 
-        val tailLayer = puppetRoot.image(slices.tails[0], Anchor2D.TOP_LEFT) {
-            x = offsets.tailX
-            y = offsets.tailY
-            applyPuppetScale()
-        }
+        val stepTailWagWithDtSec: ((Double) -> Unit)? =
+            if (FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif) {
+                val tailLayer = puppetRoot.image(slices.tails[0], Anchor2D.TOP_LEFT) {
+                    x = offsets.tailX
+                    y = offsets.tailY
+                    applyPuppetScale()
+                }
+                val tailSequence = sheet.tailWagPingPongIndices
+                var tailSequenceIndex = 0
+                var tailElapsed = 0.0
+                val tailFrameDurationSec = sheet.spec.tailWagFrameDurationSec
+                { dtSec ->
+                    tailElapsed += dtSec
+                    if (tailElapsed >= tailFrameDurationSec) {
+                        tailElapsed = 0.0
+                        tailSequenceIndex = (tailSequenceIndex + 1) % tailSequence.size
+                        applySlice(tailLayer, slices.tails[tailSequence[tailSequenceIndex]])
+                    }
+                }
+            } else {
+                null
+            }
         @Suppress("UNUSED_VARIABLE")
         val bodyLayer = puppetRoot.image(slices.body, Anchor2D.TOP_LEFT) {
             x = offsets.bodyX
@@ -139,11 +157,6 @@ fun Stage.installFoxPuppetPreview(
             }
         }
 
-        val tailSequence = sheet.tailWagPingPongIndices
-        var tailSequenceIndex = 0
-        var tailElapsed = 0.0
-        val tailFrameDurationSec = sheet.spec.tailWagFrameDurationSec
-
         val microDriver = FoxSpadePuppetMicroAnimDriver(
             rng = Random.Default,
             phaseJitterSec = 0.0,
@@ -165,12 +178,7 @@ fun Stage.installFoxPuppetPreview(
         puppetRoot.addUpdater { dt: Duration ->
             val dtSec = dt.inWholeNanoseconds.toDouble() / 1_000_000_000.0
             microDriver.tick(dtSec)
-            tailElapsed += dtSec
-            if (tailElapsed >= tailFrameDurationSec) {
-                tailElapsed = 0.0
-                tailSequenceIndex = (tailSequenceIndex + 1) % tailSequence.size
-                applySlice(tailLayer, slices.tails[tailSequence[tailSequenceIndex]])
-            }
+            stepTailWagWithDtSec?.invoke(dtSec)
         }
 
         println(

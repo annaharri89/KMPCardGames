@@ -81,6 +81,11 @@ class FoxSpadePuppetMicroAnimDriver(
      * swallow steps back-to-back so queen neck motion is always visible.
      */
     private val neckSwallowLoopOnly: Boolean = false,
+    /**
+     * When true (temporary Queen of Hearts card mode), only blink runs after idle gaps; ear and neck micro-anims are skipped.
+     * Ignored when [neckSwallowLoopOnly] is true.
+     */
+    private val blinkOnlyMicroAnims: Boolean = false,
 ) {
     private val blinkQuickHoldSec = 1.0 / config.blinkTransitionFps
 
@@ -197,6 +202,11 @@ class FoxSpadePuppetMicroAnimDriver(
     }
 
     private fun startRandomMicroAnim() {
+        if (blinkOnlyMicroAnims && !neckSwallowLoopOnly) {
+            active = ActiveMicroAnim.Blinking(0, 0.0)
+            showHeadFrame(config.blinkHeadFrameIndices[0])
+            return
+        }
         val forbidden =
             if (consecutiveSameKindCompleted >= 2) lastCompletedKind else null
         when (pickWeightedKind(forbidden)) {
