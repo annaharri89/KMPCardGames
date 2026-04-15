@@ -1,8 +1,8 @@
 package ui.render
 
-import app.CardTheme
-import app.SolitaireUiState
 import app.cardThemeSpec
+import presentation.solitaire.CardTheme
+import presentation.solitaire.SolitaireUiState
 import domain.model.CardColor
 import domain.model.Rank
 import domain.model.Suit
@@ -73,6 +73,8 @@ data class DraggableCardTarget(
 
 /** [x]/[y] are stage coordinates of the pointer; the drag ghost is drawn centered on the top card of [stackCards]. */
 data class BoardDragPreview(
+    val sourcePileId: String,
+    val sourceCardCount: Int,
     val stackCards: List<CardViewModel>,
     val x: Double,
     val y: Double,
@@ -93,13 +95,21 @@ class SolitaireBoardRenderer(
 ) {
     companion object {
         private const val THEME_RENDERER_LOG_TAG = "KawaiiThemeRenderer"
+        private val FOUNDATION_SUIT_SLOT_ORDER = listOf(
+            Suit.HEARTS,
+            Suit.DIAMONDS,
+            Suit.SPADES,
+            Suit.CLUBS,
+        )
     }
 
-    private val cardWidth = SolitaireBoardFaceCardMetrics.cardWidth
-    private val cardHeight = SolitaireBoardFaceCardMetrics.cardHeight
-    private val tableauCardOffsetY = 24.0
+    private var playfieldMetrics = SolitaireBoardPlayfieldMetrics.forViewport(viewportWidth, viewportHeight)
 
-    private var activeCardTheme: CardTheme = CardTheme.KAWAII_NATURE
+    private val cardWidth get() = playfieldMetrics.cardWidth
+    private val cardHeight get() = playfieldMetrics.cardHeight
+    private val tableauCardOffsetY get() = playfieldMetrics.tableauCardOffsetY
+
+    private var activeCardTheme: CardTheme = CardTheme.REGAL_ANIMALS
     private var activeThemeSpec = cardThemeSpec(activeCardTheme)
     private var texturePackerSliceByBaseName: Map<String, RectSlice<Bitmap>>? = null
     private var foxSpadePuppetSlices: FoxPuppetSheetLayout.PuppetSlices? = null
@@ -248,14 +258,54 @@ class SolitaireBoardRenderer(
         x = 450.0
         y = 24.0
     }
+
+    init {
+        positionHudOverlay()
+    }
+
+    private fun positionHudOverlay() {
+        val w = viewportWidth
+        val h = viewportHeight
+        val primary = playfieldMetrics.hudPrimaryTextSize
+        val secondary = playfieldMetrics.hudSecondaryTextSize
+        val topBarY = h * (24.0 / 720.0)
+        statusText.textSize = primary
+        statusText.x = w * (32.0 / 1280.0)
+        statusText.y = h * (676.0 / 720.0)
+        movesText.textSize = primary
+        movesText.x = w * (940.0 / 1280.0)
+        movesText.y = h * (676.0 / 720.0)
+        stockCountText.textSize = secondary
+        stockCountText.x = w * (36.0 / 1280.0)
+        stockCountText.y = h * (176.0 / 720.0)
+        stockButton.textSize = primary
+        stockButton.x = w * (32.0 / 1280.0)
+        stockButton.y = topBarY
+        recycleButton.textSize = primary
+        recycleButton.x = w * (130.0 / 1280.0)
+        recycleButton.y = topBarY
+        autoMoveButton.textSize = primary
+        autoMoveButton.x = w * (260.0 / 1280.0)
+        autoMoveButton.y = topBarY
+        undoButton.textSize = primary
+        undoButton.x = w * (350.0 / 1280.0)
+        undoButton.y = topBarY
+        redoButton.textSize = primary
+        redoButton.x = w * (450.0 / 1280.0)
+        redoButton.y = topBarY
+    }
+
     private var dragGhostView: Container? = null
     private var dragGhostContentSignature: String? = null
+    private var hiddenDragSourcePileId: String? = null
+    private var hiddenDragSourceCardCount: Int = 0
 
     /** Lays out piles and cards from [uiState], updates HUD text, and returns targets for [ui.input.SolitaireInputController]. */
     fun render(
         uiState: SolitaireUiState,
         selectedPileId: String? = null,
     ): SolitaireRenderedBoard {
+        clearDragPreviewGhost(retainSourceHidden = true)
         ensurePuppetHub()
         refreshTheme(uiState.cardTheme)
         val renderModel = requireNotNull(uiState.renderModel) {
@@ -266,6 +316,8 @@ class SolitaireBoardRenderer(
             viewportHeight = viewportHeight,
         )
         if (viewportWidth != lastBoardLayoutViewportW || viewportHeight != lastBoardLayoutViewportH) {
+            playfieldMetrics = SolitaireBoardPlayfieldMetrics.forViewport(viewportWidth, viewportHeight)
+            positionHudOverlay()
             resetBoardChromeForViewportChange()
             lastBoardLayoutViewportW = viewportWidth
             lastBoardLayoutViewportH = viewportHeight
@@ -296,7 +348,7 @@ class SolitaireBoardRenderer(
         pileHitAreas["waste"] = wasteSlot.second
 
         boardLayout.foundationPiles.forEachIndexed { index, pileLayout ->
-            val suit = Suit.entries[index]
+            val suit = FOUNDATION_SUIT_SLOT_ORDER[index]
             val pileId = "foundation-${suit.name.lowercase()}"
             val foundationSlot = syncPileSlot(
                 pileId = pileId,
@@ -348,6 +400,7 @@ class SolitaireBoardRenderer(
             boardLayout = boardLayout,
             draggableCardTargets = draggableCardTargets,
         )
+        clearDragPreviewGhost(retainSourceHidden = false)
         updateHud(uiState, renderModel)
 
         restoreRootLayerOrderAfterBoardRebuild()
@@ -452,17 +505,18 @@ class SolitaireBoardRenderer(
         while (foundationSuitContainer.numChildren < 4) {
             Container().addTo(foundationSuitContainer)
         }
-        Suit.entries.forEachIndexed { index, suit ->
+        FOUNDATION_SUIT_SLOT_ORDER.forEachIndexed { index, suit ->
             val pileLayout = boardLayout.foundationPiles[index]
             val holder = foundationSuitContainer.getChildAt(index) as Container
             holder.removeAllChildViews()
+            val foundationGlyphScale = playfieldMetrics.uniformScale
             suitSymbolPainter.draw(
                 parentContainer = holder,
                 suit = suit,
-                x = pileLayout.x + 31.0,
-                y = pileLayout.y + 40.0,
-                symbolWidth = 34.0,
-                symbolHeight = 32.0,
+                x = pileLayout.x + 30.0 * foundationGlyphScale,
+                y = pileLayout.y + 39.0 * foundationGlyphScale,
+                symbolWidth = 36.0 * foundationGlyphScale,
+                symbolHeight = 34.0 * foundationGlyphScale,
             )
         }
     }
@@ -512,8 +566,11 @@ class SolitaireBoardRenderer(
         boardLayout: ui.layout.SolitaireBoardLayout,
         draggableCardTargets: MutableList<DraggableCardTarget>,
     ) {
-        renderModel.foundationPiles.forEachIndexed { index, pileViewModel ->
-            val topCard = pileViewModel.cards.lastOrNull()
+        val foundationPileById = renderModel.foundationPiles.associateBy { it.pileId }
+        FOUNDATION_SUIT_SLOT_ORDER.forEachIndexed { index, suit ->
+            val pileId = "foundation-${suit.name.lowercase()}"
+            val pileViewModel = foundationPileById[pileId]
+            val topCard = pileViewModel?.cards?.lastOrNull()
             val pileLayout = boardLayout.foundationPiles[index]
             if (topCard == null) {
                 foundationBindings[index]?.let { b ->
@@ -537,7 +594,7 @@ class SolitaireBoardRenderer(
                 animateFoxQueenSpade = true,
             )
             draggableCardTargets += DraggableCardTarget(
-                pileId = pileViewModel.pileId,
+                pileId = pileId,
                 card = topCard,
                 cardCount = 1,
                 stackCards = listOf(topCard),
@@ -643,13 +700,14 @@ class SolitaireBoardRenderer(
         puppetDrawContext: FaceCardPuppetDrawContext?,
         binding: CardSlotBinding?,
     ): SolidRect {
+        val cornerScale = playfieldMetrics.uniformScale
         parentContainer.solidRect(
             width = cardWidth,
             height = cardHeight,
             color = Colors.BLACK.withAd(activeThemeSpec.shadowAlpha),
         ) {
-            this.x = activeThemeSpec.shadowOffset
-            this.y = activeThemeSpec.shadowOffset
+            this.x = activeThemeSpec.shadowOffset * cornerScale
+            this.y = activeThemeSpec.shadowOffset * cornerScale
             mouseEnabled = false
         }
         val isCardHidden = isHiddenCard(card)
@@ -660,7 +718,7 @@ class SolitaireBoardRenderer(
         ) {
             mouseEnabled = isInteractive
         }
-        drawCardBorder(parentContainer)
+        drawCardBorder(parentContainer, cornerScale)
         if (isCardHidden) {
             drawHiddenCardPattern(parentContainer)
             return cardRect
@@ -669,28 +727,28 @@ class SolitaireBoardRenderer(
         val rankColor = if (card.color == CardColor.RED) activeThemeSpec.redSuitColor else activeThemeSpec.blackSuitColor
         parentContainer.text(
             text = rankShortLabel(visibleRank),
-            textSize = activeThemeSpec.rankTextSize,
+            textSize = activeThemeSpec.rankTextSize * cornerScale,
             color = rankColor,
         ) {
-            x = 8.0
-            y = 6.0
+            x = 8.0 * cornerScale
+            y = 6.0 * cornerScale
             mouseEnabled = false
         }
         suitSymbolPainter.draw(
             parentContainer = parentContainer,
             suit = card.suit,
-            x = 9.0,
-            y = 30.0,
-            symbolWidth = 22.0,
-            symbolHeight = 18.0,
+            x = 8.0 * cornerScale,
+            y = 29.0 * cornerScale,
+            symbolWidth = 26.0 * cornerScale,
+            symbolHeight = 22.0 * cornerScale,
         )
         suitSymbolPainter.draw(
             parentContainer = parentContainer,
             suit = card.suit,
-            x = cardWidth - 31.0,
-            y = cardHeight - 26.0,
-            symbolWidth = 22.0,
-            symbolHeight = 18.0,
+            x = cardWidth - 34.0 * cornerScale,
+            y = cardHeight - 27.0 * cornerScale,
+            symbolWidth = 26.0 * cornerScale,
+            symbolHeight = 22.0 * cornerScale,
         )
         val faceCardAnimal = faceCardAnimalForRank(visibleRank)
         val useLargeFaceMotifSlot =
@@ -698,14 +756,14 @@ class SolitaireBoardRenderer(
                 foxSpadePuppetSlices != null ||
                 foxHeartPuppetSlices != null
         val baseFaceMotifWidth = if (useLargeFaceMotifSlot) {
-            SolitaireBoardFaceCardMetrics.largeFaceMotifWidth
+            SolitaireBoardFaceCardMetrics.largeFaceMotifWidth * cornerScale
         } else {
-            62.0
+            62.0 * cornerScale
         }
         val baseFaceMotifHeight = if (useLargeFaceMotifSlot) {
-            SolitaireBoardFaceCardMetrics.largeFaceMotifHeight
+            SolitaireBoardFaceCardMetrics.largeFaceMotifHeight * cornerScale
         } else {
-            74.0
+            74.0 * cornerScale
         }
         val bleedScale =
             if (allowFaceMotifBleed && faceCardAnimal != FaceCardAnimal.NONE) {
@@ -741,50 +799,52 @@ class SolitaireBoardRenderer(
             paintResult.motifRoot
         }
         if (enableAnimatedFaceMotif && centerMotif != null && faceCardAnimal != FaceCardAnimal.NONE) {
-            centerMotif.y -= activeThemeSpec.faceCardIdleBobDistance
+            centerMotif.y -= activeThemeSpec.faceCardIdleBobDistance * cornerScale
         }
         return cardRect
     }
 
-    private fun drawCardBorder(parentContainer: Container) {
+    private fun drawCardBorder(parentContainer: Container, cornerScale: Double) {
+        val borderWidth = activeThemeSpec.borderWidth * cornerScale
         parentContainer.solidRect(
             width = cardWidth,
-            height = activeThemeSpec.borderWidth,
+            height = borderWidth,
             color = activeThemeSpec.cardBorderColor,
         ) { mouseEnabled = false }
         parentContainer.solidRect(
             width = cardWidth,
-            height = activeThemeSpec.borderWidth,
+            height = borderWidth,
             color = activeThemeSpec.cardBorderColor,
         ) {
-            y = cardHeight - activeThemeSpec.borderWidth
+            y = cardHeight - borderWidth
             mouseEnabled = false
         }
         parentContainer.solidRect(
-            width = activeThemeSpec.borderWidth,
+            width = borderWidth,
             height = cardHeight,
             color = activeThemeSpec.cardBorderColor,
         ) { mouseEnabled = false }
         parentContainer.solidRect(
-            width = activeThemeSpec.borderWidth,
+            width = borderWidth,
             height = cardHeight,
             color = activeThemeSpec.cardBorderColor,
         ) {
-            x = cardWidth - activeThemeSpec.borderWidth
+            x = cardWidth - borderWidth
             mouseEnabled = false
         }
     }
 
     private fun drawHiddenCardPattern(parentContainer: Container) {
-        val stripeWidth = 12.0
+        val patternScale = playfieldMetrics.uniformScale
+        val stripeWidth = 12.0 * patternScale
         repeat(8) { stripeIndex ->
             parentContainer.solidRect(
                 width = stripeWidth,
-                height = 8.0,
+                height = 8.0 * patternScale,
                 color = activeThemeSpec.hiddenCardAccentColor.withAd(0.65),
             ) {
-                x = 6.0 + (stripeIndex * 11.0)
-                y = 16.0 + (stripeIndex % 2) * 16.0
+                x = 6.0 * patternScale + (stripeIndex * 11.0 * patternScale)
+                y = 16.0 * patternScale + (stripeIndex % 2) * 16.0 * patternScale
                 mouseEnabled = false
             }
         }
@@ -828,13 +888,30 @@ class SolitaireBoardRenderer(
     }
 
     fun renderDragPreview(preview: BoardDragPreview?) {
-        if (preview == null) {
-            val existingGhost = dragGhostView
-            if (existingGhost != null) {
-                existingGhost.parent?.removeChild(existingGhost)
+        if (
+            preview?.sourcePileId != hiddenDragSourcePileId ||
+            preview?.sourceCardCount != hiddenDragSourceCardCount
+        ) {
+            setDragSourceHidden(
+                pileId = hiddenDragSourcePileId,
+                cardCount = hiddenDragSourceCardCount,
+                hidden = false,
+            )
+            if (preview != null) {
+                setDragSourceHidden(
+                    pileId = preview.sourcePileId,
+                    cardCount = preview.sourceCardCount,
+                    hidden = true,
+                )
+                hiddenDragSourcePileId = preview.sourcePileId
+                hiddenDragSourceCardCount = preview.sourceCardCount
+            } else {
+                hiddenDragSourcePileId = null
+                hiddenDragSourceCardCount = 0
             }
-            dragGhostView = null
-            dragGhostContentSignature = null
+        }
+        if (preview == null) {
+            clearDragPreviewGhost(retainSourceHidden = false)
             return
         }
         val nextSignature = stackSignature(preview.stackCards)
@@ -846,6 +923,51 @@ class SolitaireBoardRenderer(
         val ghost = dragGhostView!!
         ghost.x = preview.x - cardWidth / 2.0
         ghost.y = preview.y - cardHeight / 2.0
+    }
+
+    fun clearDragPreviewGhost(retainSourceHidden: Boolean) {
+        val existingGhost = dragGhostView
+        if (existingGhost != null) {
+            existingGhost.parent?.removeChild(existingGhost)
+        }
+        dragGhostView = null
+        dragGhostContentSignature = null
+        if (retainSourceHidden) return
+        setDragSourceHidden(
+            pileId = hiddenDragSourcePileId,
+            cardCount = hiddenDragSourceCardCount,
+            hidden = false,
+        )
+        hiddenDragSourcePileId = null
+        hiddenDragSourceCardCount = 0
+    }
+
+    private fun setDragSourceHidden(
+        pileId: String?,
+        cardCount: Int,
+        hidden: Boolean,
+    ) {
+        if (pileId == null || cardCount <= 0) return
+        when {
+            pileId == "waste" -> {
+                wasteBinding?.root?.visible = !hidden
+            }
+            pileId.startsWith("foundation-") -> {
+                val suitToken = pileId.removePrefix("foundation-")
+                val suitIndex = FOUNDATION_SUIT_SLOT_ORDER.indexOfFirst { it.name.lowercase() == suitToken }
+                if (suitIndex >= 0) {
+                    foundationBindings[suitIndex]?.root?.visible = !hidden
+                }
+            }
+            pileId.startsWith("tableau-") -> {
+                val columnIndex = pileId.removePrefix("tableau-").toIntOrNull() ?: return
+                val columnBindings = tableauBindings.getOrNull(columnIndex) ?: return
+                val startIndex = (columnBindings.size - cardCount).coerceAtLeast(0)
+                for (bindingIndex in startIndex until columnBindings.size) {
+                    columnBindings[bindingIndex].root.visible = !hidden
+                }
+            }
+        }
     }
 
     suspend fun animateCardTravel(

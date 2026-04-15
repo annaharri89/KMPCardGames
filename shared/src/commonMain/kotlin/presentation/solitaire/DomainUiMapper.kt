@@ -1,4 +1,4 @@
-package ui.adapter
+package presentation.solitaire
 
 import domain.action.GameAction
 import domain.action.PileRef
@@ -28,19 +28,7 @@ data class UiDispatchResult(
     val events: List<DomainEvent>,
 )
 
-/**
- * Bridges KorGE UI code and the portable `shared` card-game engine.
- *
- * Input and rendering use string pile ids (for example `stock`, `waste`, `tableau-0`,
- * `foundation-HEARTS`, `freecell-0`) and high-level [UiIntent] values. This class converts those
- * into [GameAction] values, runs them through [GameSessionManager] (which owns the real
- * [domain.model.GameState]), and always returns a fresh [GameRenderModel] from
- * [GameRenderModelProjector] so the scene can draw without touching domain types directly.
- *
- * [applyUiIntent] tells you if the rules rejected the move ([UiDispatchResult.wasAccepted],
- * [UiDispatchResult.rejectionReason]) and exposes [DomainEvent]s for win/move side effects.
- * [undo] and [redo] move the session backward and forward and return updated render models.
- */
+/** Turns taps/drags (and pile names like `stock` or `tableau-0`) into real moves and the next drawable board. */
 class DomainUiMapper(
     private val gameSessionManager: GameSessionManager = GameSessionFactory.createDefaultSessionManager(),
 ) {

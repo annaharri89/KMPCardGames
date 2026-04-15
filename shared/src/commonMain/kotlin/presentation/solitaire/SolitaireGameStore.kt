@@ -1,10 +1,8 @@
-package app
+package presentation.solitaire
 
 import domain.model.GameVariant
 import domain.readmodel.GameRenderModel
 import domain.result.RejectionReason
-import ui.adapter.DomainUiMapper
-import ui.adapter.UiIntent
 
 data class SolitaireUiState(
     val renderModel: GameRenderModel?,
@@ -16,20 +14,7 @@ data class SolitaireUiState(
     val cardTheme: CardTheme,
 )
 
-/**
- * Mutable, UI-oriented snapshot for the solitaire screen: what to draw, what to tell the player,
- * and light interaction state (selection, theme).
- *
- * All rule enforcement and undo stacks live in the `shared` module behind [ui.adapter.DomainUiMapper].
- * This store wires KorGE to that layer: [start] opens a new Klondike game with [initialSeed],
- * [dispatchIntent] forwards taps/drags as [UiIntent]s and copies back the latest [GameRenderModel],
- * and it updates [SolitaireUiState.statusMessage], [SolitaireUiState.wasLastMoveAccepted], and
- * [SolitaireUiState.hasWon] so the scene can show feedback without parsing domain errors.
- *
- * [undo] and [redo] call the mapper and, when there is nothing to undo/redo, keep the prior model
- * and set a short status message instead of propagating an exception to the UI. [snapshot] returns
- * the current [SolitaireUiState] for readers that should not trigger side effects.
- */
+/** Remembers the latest board picture, short status lines, and win flag while the UI talks to [DomainUiMapper]. */
 class SolitaireGameStore(
     private val domainUiMapper: DomainUiMapper = DomainUiMapper(),
     // TODO: Default to a random seed per new game (keep injectable seed for tests/replays).
@@ -42,7 +27,7 @@ class SolitaireGameStore(
         lastRejectionReason = null,
         hasWon = false,
         selectedSourcePileId = null,
-        cardTheme = CardTheme.KAWAII_NATURE,
+        cardTheme = CardTheme.REGAL_ANIMALS,
     )
 
     fun start(): SolitaireUiState {
@@ -89,7 +74,7 @@ class SolitaireGameStore(
                 lastRejectionReason = null,
                 hasWon = hasWon(renderModel),
             )
-        } catch (_: IllegalStateException) {
+        } catch (_ignored: IllegalStateException) {
             currentState.copy(
                 renderModel = currentRenderModel,
                 statusMessage = "Nothing to undo",
@@ -112,7 +97,7 @@ class SolitaireGameStore(
                 lastRejectionReason = null,
                 hasWon = hasWon(renderModel),
             )
-        } catch (_: IllegalStateException) {
+        } catch (_ignored: IllegalStateException) {
             currentState.copy(
                 renderModel = currentRenderModel,
                 statusMessage = "Nothing to redo",

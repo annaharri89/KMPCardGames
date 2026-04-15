@@ -2,6 +2,7 @@ package app
 
 import domain.model.Suit
 import korlibs.image.color.Colors
+import presentation.solitaire.CardTheme
 import korlibs.korge.view.Container
 import korlibs.korge.view.Stage
 import korlibs.korge.view.addTo
@@ -26,7 +27,7 @@ class FoxPuppetSheetPreviewScene {
                 sheetPath = "debug/fox_spade_puppet_sheet.png",
                 previewId = "fox_spade",
             ) { slices, _ ->
-                val themeSpec = cardThemeSpec(CardTheme.KAWAII_NATURE)
+                val themeSpec = cardThemeSpec(CardTheme.REGAL_ANIMALS)
                 val cardM = SolitaireBoardFaceCardMetrics
 
                 this.text(

@@ -1,6 +1,5 @@
-package app
+package presentation.solitaire
 
-import ui.adapter.UiIntent
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -13,7 +12,7 @@ class SolitaireGameStoreTest {
         val startedState = solitaireGameStore.start()
         assertNotNull(startedState.renderModel)
         assertTrue(startedState.wasLastMoveAccepted)
-        assertTrue(startedState.cardTheme == CardTheme.KAWAII_NATURE)
+        assertTrue(startedState.cardTheme == CardTheme.REGAL_ANIMALS)
     }
 
     @Test

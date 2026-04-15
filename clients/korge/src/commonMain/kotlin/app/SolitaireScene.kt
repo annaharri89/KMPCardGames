@@ -4,21 +4,26 @@ import korlibs.image.format.readBitmap
 import korlibs.io.async.launchImmediately
 import korlibs.korge.view.Stage
 import korlibs.korge.view.solidRect
-import ui.adapter.UiIntent
+import presentation.solitaire.SolitaireGameStore
+import presentation.solitaire.UiIntent
 import ui.input.SolitaireInputController
 import ui.render.FoxHeartPuppetSheet
 import ui.render.FoxPuppetSheetLayout
+import ui.render.BoardDragPreview
+import ui.render.DraggableCardTarget
 import ui.render.FoxSpadePuppetSheet
 import ui.render.SolitaireBoardRenderer
+import ui.render.SuitPipBitmapNormalize
 import ui.render.expectedTopCardYForSolitairePile
 
 /**
  * KorGE entry for the playable solitaire screen: background, [SolitaireGameStore], [SolitaireBoardRenderer],
  * and [SolitaireInputController]. Card faces use text and shape fallbacks unless a TexturePacker atlas,
- * [scripts/render_simple_suit_pips.py] assets (621×586): heart, diamond, spade, club PNGs under `debug/`, or the debug fox
+ * [scripts/render_simple_suit_pips.py] assets (621×586 source): heart, diamond, spade, club PNGs under `debug/` (long edge
+ * clamped at load for GPU-friendly size), or the debug fox
  * puppet sheets (spade + heart) are loaded; the board
- * re-renders and input re-binds after each state change. Drag-drop runs a short [SolitaireBoardRenderer.animateCardTravel]
- * tween before applying the final layout.
+ * re-renders and input re-binds after each state change. Drag-drop and foundation double-tap run a short
+ * [SolitaireBoardRenderer.animateCardTravel] tween before showing the post-move layout.
  */
 class SolitaireScene {
     companion object {
@@ -87,16 +92,23 @@ class SolitaireScene {
                     },
                     onDragDropAttempt = { dragDropAttempt ->
                         if (moveAnimationRunning) return@bind
-                        solitaireBoardRenderer.renderDragPreview(null)
-                        val stateAfterDrop = solitaireGameStore.dispatchIntent(
-                            UiIntent.DragMove(
-                                sourcePileId = dragDropAttempt.sourcePileId,
-                                destinationPileId = dragDropAttempt.destinationPileId,
-                                cardCount = dragDropAttempt.cardCount,
-                            ),
-                        )
+                        solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = true)
+                        val hasDropTarget =
+                            dragDropAttempt.destinationPileId != null &&
+                                dragDropAttempt.destinationPileId != dragDropAttempt.sourcePileId
+                        val stateAfterDrop = if (hasDropTarget) {
+                            solitaireGameStore.dispatchIntent(
+                                UiIntent.DragMove(
+                                    sourcePileId = dragDropAttempt.sourcePileId,
+                                    destinationPileId = requireNotNull(dragDropAttempt.destinationPileId),
+                                    cardCount = dragDropAttempt.cardCount,
+                                ),
+                            )
+                        } else {
+                            solitaireUiState.copy(wasLastMoveAccepted = false)
+                        }
                         val pileIdForAnimationTarget = if (stateAfterDrop.wasLastMoveAccepted) {
-                            dragDropAttempt.destinationPileId
+                            requireNotNull(dragDropAttempt.destinationPileId)
                         } else {
                             dragDropAttempt.sourcePileId
                         }
@@ -137,6 +149,76 @@ class SolitaireScene {
                             renderAndBind()
                         }
                     },
+                    onFoundationDoubleTapAttempt = { tapStageX, tapStageY, live: DraggableCardTarget ->
+                        if (moveAnimationRunning) return@bind
+                        val destinationPileId = "foundation-${live.card.suit.name.lowercase()}"
+                        solitaireBoardRenderer.renderDragPreview(
+                            BoardDragPreview(
+                                sourcePileId = live.pileId,
+                                sourceCardCount = 1,
+                                stackCards = listOf(live.card),
+                                x = tapStageX,
+                                y = tapStageY,
+                            ),
+                        )
+                        solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = true)
+                        val stateAfterDrop = solitaireGameStore.dispatchIntent(
+                            UiIntent.DragMove(
+                                sourcePileId = live.pileId,
+                                destinationPileId = destinationPileId,
+                                cardCount = 1,
+                            ),
+                        )
+                        if (!stateAfterDrop.wasLastMoveAccepted) {
+                            println(
+                                "[$MOVE_ANIMATION_LOG_TAG] foundationDoubleTapRejected " +
+                                    "source=${live.pileId} dest=$destinationPileId",
+                            )
+                            solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = false)
+                            solitaireUiState = stateAfterDrop.copy(selectedSourcePileId = null)
+                            invalidMoveOverlay.alpha = 0.22
+                            renderAndBind()
+                            return@bind
+                        }
+                        val pileIdForAnimationTarget = destinationPileId
+                        val animationTargetHitArea = latestRenderedBoard.pileHitAreas[pileIdForAnimationTarget]
+                        if (animationTargetHitArea == null) {
+                            solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = false)
+                            solitaireUiState = stateAfterDrop.copy(selectedSourcePileId = null)
+                            invalidMoveOverlay.alpha = 0.0
+                            renderAndBind()
+                            return@bind
+                        }
+                        println(
+                            "[$MOVE_ANIMATION_LOG_TAG] foundationDoubleTapAccepted " +
+                                "source=${live.pileId} target=$pileIdForAnimationTarget",
+                        )
+                        val renderModelAfter = stateAfterDrop.renderModel
+                        val expectedTopY = renderModelAfter?.let { rm ->
+                            expectedTopCardYForSolitairePile(
+                                pileId = pileIdForAnimationTarget,
+                                renderModel = rm,
+                                viewportWidth = views.virtualWidth.toDouble(),
+                                viewportHeight = views.virtualHeight.toDouble(),
+                            )
+                        }
+                        val animationEndY = expectedTopY ?: animationTargetHitArea.y
+                        moveAnimationRunning = true
+                        launchImmediately(coroutineContext) {
+                            solitaireBoardRenderer.animateCardTravel(
+                                card = live.card,
+                                startX = tapStageX,
+                                startY = tapStageY,
+                                endX = animationTargetHitArea.x,
+                                endY = animationEndY,
+                                isMoveAccepted = true,
+                            )
+                            moveAnimationRunning = false
+                            solitaireUiState = stateAfterDrop.copy(selectedSourcePileId = null)
+                            invalidMoveOverlay.alpha = 0.0
+                            renderAndBind()
+                        }
+                    },
                     onUndo = {
                         if (moveAnimationRunning) return@bind
                         solitaireUiState = solitaireGameStore.undo()
@@ -165,10 +247,13 @@ class SolitaireScene {
                     null
                 }
 
-                val heartPip = loadPip("debug/fox_queen_style_heart_suit_pip.png")
-                val diamondPip = loadPip("debug/simple_diamond_suit_pip.png")
-                val spadePip = loadPip("debug/spade_pip.png")
-                val clubPip = loadPip("debug/simple_club_suit_pip.png")
+                suspend fun loadPipNormalized(path: String) =
+                    loadPip(path)?.let(SuitPipBitmapNormalize::clampTextureLongestEdge)
+
+                val heartPip = loadPipNormalized("debug/fox_queen_style_heart_suit_pip.png")
+                val diamondPip = loadPipNormalized("debug/simple_diamond_suit_pip.png")
+                val spadePip = loadPipNormalized("debug/spade_pip.png")
+                val clubPip = loadPipNormalized("debug/simple_club_suit_pip.png")
                 solitaireBoardRenderer.setSimpleSuitPipBitmaps(heartPip, diamondPip, spadePip, clubPip)
                 renderAndBind(bindInput = true)
             }

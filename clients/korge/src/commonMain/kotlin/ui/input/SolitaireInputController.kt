@@ -1,12 +1,16 @@
 package ui.input
 
+import domain.readmodel.CardFace
 import domain.readmodel.CardViewModel
 import korlibs.korge.input.onClick
 import korlibs.korge.input.onMouseDrag
 import korlibs.korge.view.SolidRect
+import korlibs.time.DateTime
+import korlibs.time.TimeSpan
+import korlibs.time.seconds
 import ui.render.BoardDragPreview
 import ui.render.DraggableCardTarget
-import ui.adapter.UiIntent
+import presentation.solitaire.UiIntent
 import ui.render.PileHitArea
 import ui.render.SolitaireRenderedBoard
 import kotlin.math.abs
@@ -68,6 +72,8 @@ internal fun resolvePileIdAtPoint(
  * - **Drag from a visible stack** (tableau / free-cell style targets) shows a [ui.render.BoardDragPreview]
  * while moving; on release, `onDragDropAttempt` runs so the scene can validate the drop and dispatch
  * a multi-card [UiIntent.DragMove] if appropriate.
+ * - **Double-tap** on a waste or tableau **top** face-up card calls [onFoundationDoubleTapAttempt] so the
+ * scene can auto-move a single card to its suit foundation with the same fly animation as drag-drop.
  *
  * Call [bind] after the renderer built views and hit areas so handlers attach to the right nodes.
  * Toolbar buttons are wired only on the first [bind]. Pile and card hit targets use **stable** view
@@ -75,6 +81,11 @@ internal fun resolvePileIdAtPoint(
  * a fresh `latestRenderedBoard` each time so handlers read current piles and drag metadata.
  */
 class SolitaireInputController {
+    companion object {
+        private const val INPUT_LOG_TAG = "SolitaireInput"
+        private val foundationDoubleTapMaxGap: TimeSpan = 0.35.seconds
+    }
+
     private var latestRenderedBoard: SolitaireRenderedBoard? = null
     private val pileRectsWithInput = mutableSetOf<SolidRect>()
     private val cardRectsWithDragInput = mutableSetOf<SolidRect>()
@@ -83,9 +94,12 @@ class SolitaireInputController {
     private var selectedSourceCardCount: Int = 1
     private var controlsAreBound = false
 
+    private var lastCardTapForFoundationAt: DateTime? = null
+    private var lastCardTapForFoundationRect: SolidRect? = null
+
     data class DragDropAttempt(
         val sourcePileId: String,
-        val destinationPileId: String,
+        val destinationPileId: String?,
         val cardCount: Int,
         val card: CardViewModel,
         val dropX: Double,
@@ -99,6 +113,7 @@ class SolitaireInputController {
         onSelectionChanged: (String?) -> Unit,
         onDragPreviewChanged: (BoardDragPreview?) -> Unit,
         onDragDropAttempt: (DragDropAttempt) -> Unit,
+        onFoundationDoubleTapAttempt: (tapStageX: Double, tapStageY: Double, live: DraggableCardTarget) -> Unit,
         onUndo: () -> Unit,
         onRedo: () -> Unit,
     ) {
@@ -165,6 +180,7 @@ class SolitaireInputController {
                 onSelectionChanged = onSelectionChanged,
                 onDragPreviewChanged = onDragPreviewChanged,
                 onDragDropAttempt = onDragDropAttempt,
+                onFoundationDoubleTapAttempt = onFoundationDoubleTapAttempt,
             )
         }
     }
@@ -215,9 +231,30 @@ class SolitaireInputController {
         onSelectionChanged: (String?) -> Unit,
         onDragPreviewChanged: (BoardDragPreview?) -> Unit,
         onDragDropAttempt: (DragDropAttempt) -> Unit,
+        onFoundationDoubleTapAttempt: (Double, Double, DraggableCardTarget) -> Unit,
     ) {
-        cardRect.onClick {
+        cardRect.onClick { mouse ->
             val live = liveDraggableForCardRect(cardRect) ?: return@onClick
+            val now = DateTime.now()
+            val isFoundationDoubleTap =
+                lastCardTapForFoundationRect === cardRect &&
+                    lastCardTapForFoundationAt != null &&
+                    (now - lastCardTapForFoundationAt!!) <= foundationDoubleTapMaxGap
+            if (isFoundationDoubleTap && isSurfaceEligibleForFoundationDoubleTap(live)) {
+                lastCardTapForFoundationAt = null
+                lastCardTapForFoundationRect = null
+                println(
+                    "[$INPUT_LOG_TAG] foundationDoubleTap pile=${live.pileId} suit=${live.card.suit}",
+                )
+                onFoundationDoubleTapAttempt(
+                    mouse.currentPosStage.x,
+                    mouse.currentPosStage.y,
+                    live,
+                )
+                return@onClick
+            }
+            lastCardTapForFoundationAt = now
+            lastCardTapForFoundationRect = cardRect
             handlePileTap(
                 tappedPileId = live.pileId,
                 tappedCardCount = live.cardCount,
@@ -249,25 +286,24 @@ class SolitaireInputController {
                 pileHitAreas = board.pileHitAreas.values,
             )
             if (dragInfo.end) {
-                onDragPreviewChanged(null)
-                if (destinationPileId != null && destinationPileId != live.pileId) {
-                    onDragDropAttempt(
-                        DragDropAttempt(
-                            sourcePileId = live.pileId,
-                            destinationPileId = destinationPileId,
-                            cardCount = live.cardCount,
-                            card = live.card,
-                            dropX = dragInfo.cx,
-                            dropY = dragInfo.cy,
-                        ),
-                    )
-                }
+                onDragDropAttempt(
+                    DragDropAttempt(
+                        sourcePileId = live.pileId,
+                        destinationPileId = destinationPileId,
+                        cardCount = live.cardCount,
+                        card = live.card,
+                        dropX = dragInfo.cx,
+                        dropY = dragInfo.cy,
+                    ),
+                )
                 selectedSourcePileId = null
                 selectedSourceCardCount = 1
                 return@onMouseDrag
             }
             onDragPreviewChanged(
                 BoardDragPreview(
+                    sourcePileId = live.pileId,
+                    sourceCardCount = live.cardCount,
                     stackCards = live.stackCards,
                     x = dragInfo.cx,
                     y = dragInfo.cy,
@@ -286,5 +322,21 @@ class SolitaireInputController {
             y = y,
             pileHitAreas = pileHitAreas,
         )
+    }
+
+    private fun isSurfaceEligibleForFoundationDoubleTap(live: DraggableCardTarget): Boolean {
+        if (live.pileId.startsWith("foundation-") || live.pileId == "stock") {
+            return false
+        }
+        if (live.pileId != "waste" && !live.pileId.startsWith("tableau-")) {
+            return false
+        }
+        if (live.card.face !is CardFace.Up) {
+            return false
+        }
+        if (live.pileId.startsWith("tableau-") && live.cardCount != 1) {
+            return false
+        }
+        return true
     }
 }

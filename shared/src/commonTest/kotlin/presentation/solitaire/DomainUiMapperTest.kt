@@ -1,4 +1,4 @@
-package ui.adapter
+package presentation.solitaire
 
 import domain.model.GameVariant
 import kotlin.test.Test

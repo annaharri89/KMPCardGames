@@ -90,6 +90,9 @@ class FreeCellRuleSet : RuleSet {
                 if (action.cardCount != 1) {
                     return ValidationResult.invalid(RejectionReason.INVALID_CARD_COUNT)
                 }
+                if (firstMovingCard.suit != destination.suit) {
+                    return ValidationResult.invalid(RejectionReason.RULE_VIOLATION)
+                }
                 val foundationTopCard = state.foundationPiles[destination.suit]?.lastOrNull()
                 if (CardStackPolicies.canPlaceOnFoundation(firstMovingCard, foundationTopCard)) {
                     ValidationResult.valid()

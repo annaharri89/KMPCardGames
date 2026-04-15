@@ -53,6 +53,21 @@ class FreeCellRuleSetTest {
     }
 
     @Test
+    fun moveCardFromFreeCellToMismatchedFoundationSuit_isRejected() {
+        val state = baseFreeCellState(
+            freeCells = listOf(card(Suit.SPADES, Rank.ACE), null, null, null),
+        )
+        val validation = freeCellRuleSet.validate(
+            action = GameAction.MoveCards(
+                from = PileRef.FreeCell(0),
+                to = PileRef.Foundation(Suit.HEARTS),
+            ),
+            state = state,
+        )
+        assertFalse(validation.isValid)
+    }
+
+    @Test
     fun invalidMoveToOccupiedFreeCell_isRejected() {
         val state = baseFreeCellState(
             freeCells = listOf(card(Suit.CLUBS, Rank.ACE), null, null, null),
