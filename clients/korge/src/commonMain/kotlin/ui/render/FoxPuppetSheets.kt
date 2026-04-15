@@ -3,11 +3,10 @@ package ui.render
 import korlibs.image.bitmap.Bitmap
 
 /**
- * Thin suit-specific facade over [FoxPuppetSheetLayout]: holds the log tag and delegates
- * all geometry and slicing to the underlying [spec]. Replaces the old per-suit objects so
- * timing constants and forwarding methods live in exactly one place.
+ * Small suit-specific wrapper around [FoxPuppetSheetLayout].
  *
- * Use [FoxSpadePuppetSheet] or [FoxHeartPuppetSheet] rather than constructing directly.
+ * Keeps the log tag with the layout [spec] and forwards geometry/slicing helpers.
+ * Prefer [FoxSpadePuppetSheet] or [FoxHeartPuppetSheet].
  */
 class FoxPuppetSheetFacade(val logTag: String, val spec: FoxPuppetSheetLayout.Spec) {
     val compositeOffsets get() = spec.defaultCompositeOffsets

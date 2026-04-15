@@ -3,11 +3,7 @@ package ui.render
 import korlibs.image.bitmap.Bitmap
 import korlibs.image.bitmap.Bitmap32
 
-/**
- * Shared puppet-sheet geometry for spade and heart fox assets (1376×768 reference).
- * Per-variant rects and defaults live in [spadeSheetSpec] / [heartSheetSpec]; [FoxSpadePuppetSheet] and
- * [FoxHeartPuppetSheet] forward to this module so slicing and stage math stay in one place.
- */
+/** Shared sheet geometry and defaults for the spade and heart fox puppet sheets. */
 data class FoxPuppetSheetRect(val x: Int, val y: Int, val w: Int, val h: Int)
 
 object FoxPuppetSheetLayout {
@@ -15,9 +11,9 @@ object FoxPuppetSheetLayout {
     const val DEFAULT_SHEET_HEIGHT_PX = 768
 
     data class CompositeOffsets(
-        /** Per-sheet puppet scale (head/ears/tail/neck and sheet-pixel deltas); set per suit in [Spec.defaultCompositeOffsets]. */
+        /** Base puppet scale for this sheet. */
         val displayScale: Double,
-        /** Body layer scale = [displayScale] * this; other layers use [displayScale] only. */
+        /** Multiplies [displayScale] for the body layer. */
         val bodyScaleMultiplier: Double = 1.38,
         val tailX: Double = 763.0,
         val tailY: Double = 288.0,
@@ -32,26 +28,13 @@ object FoxPuppetSheetLayout {
         val referenceSheetX: Double = 24.0,
         val referenceSheetY: Double = 400.0,
         val referenceSheetScale: Double = 0.148,
-        /**
-         * Per ear-pair index: extra downward shift in **sheet pixels** (× [displayScale]) added to [earY].
-         * Use when frames sit on different sheet rows but should align on-card; empty list or zeros = shared [earY].
-         */
+        /** Per ear-pair Y tweak in sheet px; scaled by [displayScale] and added to [earY]. */
         val earPairExtraSheetYPx: List<Double> = listOf(0.0, 35.0),
-        /**
-         * Per neck frame index (same order as [Spec.neckRects]): optional extra X in **stage pixels** after
-         * junction alignment and [neckNonFirstFrameExtraStageX]; negative moves left. Usually empty; use the scalar
-         * for “all swallow frames except the first.”
-         */
+        /** Per neck-frame X tweak in stage px after junction alignment (same order as [Spec.neckRects]). */
         val neckFrameExtraStageX: List<Double> = emptyList(),
-        /**
-         * Added to every neck frame after the first (index != 0): extra X in **stage pixels**; negative moves left.
-         * Index 0 stays the junction reference; all later swallow steps share this nudge.
-         */
+        /** Additional X tweak in stage px for neck frames after index 0. */
         val neckNonFirstFrameExtraStageX: Double = 0.0,
-        /**
-         * Added to the face-card fox motif inner container's x after uniform scale-to-fit centering; positive
-         * shifts the whole puppet right in the motif slot (unlike nudging every layer x, which the bounds math cancels).
-         */
+        /** Extra X for the face-card motif inner container after centering and fit scaling. */
         val cardMotifInnerOffsetX: Double = 5.0,
     )
 
@@ -97,7 +80,7 @@ object FoxPuppetSheetLayout {
         val microAnimWeightNeck: Int,
     )
 
-    /** Spade fox: equal-size head grid. Regenerate helpers: `clients/korge/scripts/regenerate_fox_head_slices.py`. */
+    /** Spade head frames use an equal-size grid. Regenerate via `clients/korge/scripts/regenerate_fox_head_slices.py`. */
     val spadeSheetSpec = Spec(
         headRects = listOf(
             FoxPuppetSheetRect(40, 12, 262, 275),
