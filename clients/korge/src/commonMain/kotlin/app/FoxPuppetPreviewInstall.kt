@@ -14,6 +14,8 @@ import korlibs.korge.view.image
 import korlibs.korge.view.solidRect
 import korlibs.math.geom.Anchor2D
 import korlibs.math.geom.slice.RectSlice
+import ui.render.FoxHeartPuppetSheet
+import ui.render.FoxHeartQueenAnimationDebugFlags
 import ui.render.FoxPuppetSheetFacade
 import ui.render.FoxPuppetSheetLayout
 import ui.render.FoxQueenPuppetBoardTailVisibility
@@ -27,6 +29,10 @@ import kotlin.time.Duration
  * builds an animated puppet stack with neck-swallow-only micro-animations, and shows a full-sheet
  * thumbnail. [extraWidgets] runs after slicing and before the thumbnail, so callers can inject
  * scene-specific labels, card previews, etc. [previewId] is used to tag bitmap slices.
+ * For [FoxHeartPuppetSheet], [FoxHeartQueenAnimationDebugFlags] applies: hidden neck when configured,
+ * no updater only when [FoxHeartQueenAnimationDebugFlags.suppressAllCardAnimations] is true; otherwise
+ * blink-only preview when [FoxHeartQueenAnimationDebugFlags.suppressNonBlinkCardAnimations] is true
+ * (matching the card), or neck-swallow loop + tail like spade when both heart motion flags are off.
  */
 fun Stage.installFoxPuppetPreview(
     sheet: FoxPuppetSheetFacade,
@@ -133,6 +139,9 @@ fun Stage.installFoxPuppetPreview(
             y = offsets.neckY
             applyPuppetScale()
         }
+        if (sheet === FoxHeartPuppetSheet && FoxHeartQueenAnimationDebugFlags.hideNeckOnCard) {
+            neckLayer.visible = false
+        }
         val earLayer = puppetRoot.image(slices.earPairs[0], Anchor2D.TOP_LEFT) {
             x = offsets.earX
             y = sheet.earLayerStageY(offsets, 0)
@@ -157,28 +166,38 @@ fun Stage.installFoxPuppetPreview(
             }
         }
 
-        val microDriver = FoxSpadePuppetMicroAnimDriver(
-            rng = Random.Default,
-            phaseJitterSec = 0.0,
-            config = foxPuppetMicroAnimConfig(sheet, slices.necks.size),
-            showHeadFrame = { frameIndex -> showHeadFrame(frameIndex) },
-            applyEarPairIndex = { pairIndex ->
-                val i = pairIndex.coerceIn(slices.earPairs.indices)
-                applySlice(earLayer, slices.earPairs[i])
-                earLayer.y = sheet.earLayerStageY(offsets, i)
-            },
-            applyNeckFrameIndex = { neckIndex ->
-                val i = neckIndex.coerceIn(slices.necks.indices)
-                applySlice(neckLayer, slices.necks[i])
-                neckLayer.x = sheet.neckLayerLeftXAlignedToFirstNeckFrame(offsets, slices, i)
-            },
-            neckSwallowLoopOnly = true,
-        )
+        val heartSheet = sheet === FoxHeartPuppetSheet
+        val heartPreviewStatic =
+            heartSheet && FoxHeartQueenAnimationDebugFlags.suppressAllCardAnimations
+        val heartBlinkOnlyPreview =
+            heartSheet && FoxHeartQueenAnimationDebugFlags.suppressNonBlinkCardAnimations
+        if (!heartPreviewStatic) {
+            val microDriver = FoxSpadePuppetMicroAnimDriver(
+                rng = Random.Default,
+                phaseJitterSec = 0.0,
+                config = foxPuppetMicroAnimConfig(sheet, slices.necks.size),
+                showHeadFrame = { frameIndex -> showHeadFrame(frameIndex) },
+                applyEarPairIndex = { pairIndex ->
+                    val i = pairIndex.coerceIn(slices.earPairs.indices)
+                    applySlice(earLayer, slices.earPairs[i])
+                    earLayer.y = sheet.earLayerStageY(offsets, i)
+                },
+                applyNeckFrameIndex = { neckIndex ->
+                    val i = neckIndex.coerceIn(slices.necks.indices)
+                    applySlice(neckLayer, slices.necks[i])
+                    neckLayer.x = sheet.neckLayerLeftXAlignedToFirstNeckFrame(offsets, slices, i)
+                },
+                neckSwallowLoopOnly = !heartBlinkOnlyPreview,
+                blinkOnlyMicroAnims = heartBlinkOnlyPreview,
+            )
 
-        puppetRoot.addUpdater { dt: Duration ->
-            val dtSec = dt.inWholeNanoseconds.toDouble() / 1_000_000_000.0
-            microDriver.tick(dtSec)
-            stepTailWagWithDtSec?.invoke(dtSec)
+            puppetRoot.addUpdater { dt: Duration ->
+                val dtSec = dt.inWholeNanoseconds.toDouble() / 1_000_000_000.0
+                microDriver.tick(dtSec)
+                if (!heartBlinkOnlyPreview) {
+                    stepTailWagWithDtSec?.invoke(dtSec)
+                }
+            }
         }
 
         println(
