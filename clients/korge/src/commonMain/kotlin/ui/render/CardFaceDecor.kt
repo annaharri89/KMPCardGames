@@ -3,10 +3,9 @@ package ui.render
 import domain.model.Rank
 
 /**
- * UI-only bucket for the **center** of a face-up card: pip layout ([NONE]) vs Jack/Queen/King art
- * ([JACK], [QUEEN], [KING]). [domain.model.Rank] already tells you the rank; this type exists so
- * [SolitaireBoardRenderer] can pick layout and idle bob in one place via [faceCardAnimalForRank]
- * instead of scattering `when (rank)` for J/Q/K everywhere.
+ * UI choice for face-card center art.
+ *
+ * Keeps J/Q/K mapping in [faceCardAnimalForRank] so renderer logic stays in one place.
  */
 enum class FaceCardAnimal {
     NONE,
