@@ -1,8 +1,8 @@
 package ui.render
 
-import domain.model.Suit
 import domain.readmodel.GameRenderModel
-import ui.layout.BoardLayout
+import presentation.solitaire.geometry.BoardLayout
+import presentation.solitaire.geometry.foundationSuitsVisualLeftToRight
 
 /**
  * Screen Y of the top-left of the top visible card on [pileId] after [renderModel] is applied.
@@ -14,12 +14,6 @@ internal fun expectedTopCardYForSolitairePile(
     viewportWidth: Double,
     viewportHeight: Double,
 ): Double? {
-    val foundationSuitSlotOrder = listOf(
-        Suit.HEARTS,
-        Suit.DIAMONDS,
-        Suit.SPADES,
-        Suit.CLUBS,
-    )
     val tableauCardOffsetY =
         SolitaireBoardPlayfieldMetrics.forViewport(viewportWidth, viewportHeight).tableauCardOffsetY
     val layout = BoardLayout.create(
@@ -36,7 +30,7 @@ internal fun expectedTopCardYForSolitairePile(
         }
         pileId.startsWith("foundation-") -> {
             val suitKey = pileId.removePrefix("foundation-")
-            val suitIndex = foundationSuitSlotOrder.indexOfFirst { it.name.lowercase() == suitKey }
+            val suitIndex = foundationSuitsVisualLeftToRight.indexOfFirst { it.name.lowercase() == suitKey }
             if (suitIndex < 0) return null
             val pile = renderModel.foundationPiles.firstOrNull { it.pileId == pileId } ?: return null
             if (pile.cards.isEmpty()) return null

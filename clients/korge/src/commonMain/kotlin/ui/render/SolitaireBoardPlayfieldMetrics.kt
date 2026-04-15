@@ -4,7 +4,7 @@ import kotlin.math.max
 
 /**
  * Scales card geometry and tableau vertical step so tall tableau columns and HUD fit inside
- * [viewportWidth]×[viewportHeight], matching [ui.layout.BoardLayout] row fractions.
+ * [viewportWidth]×[viewportHeight], matching [presentation.solitaire.geometry.BoardLayout] row fractions.
  */
 internal data class SolitaireBoardPlayfieldMetrics(
     val uniformScale: Double,
