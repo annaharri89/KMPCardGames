@@ -36,8 +36,9 @@ class FoxPuppetSheetFacade(val logTag: String, val spec: FoxPuppetSheetLayout.Sp
         offsets: FoxPuppetSheetLayout.CompositeOffsets,
         slices: FoxPuppetSheetLayout.PuppetSlices,
         includeTailInDesignBounds: Boolean = true,
+        includeNeckInDesignBounds: Boolean = true,
     ): FoxPuppetSheetLayout.DesignBounds =
-        FoxPuppetSheetLayout.designBounds(offsets, slices, includeTailInDesignBounds)
+        FoxPuppetSheetLayout.designBounds(offsets, slices, includeTailInDesignBounds, includeNeckInDesignBounds)
 }
 
 val FoxSpadePuppetSheet = FoxPuppetSheetFacade("FoxSpadePuppet", FoxPuppetSheetLayout.spadeSheetSpec)
