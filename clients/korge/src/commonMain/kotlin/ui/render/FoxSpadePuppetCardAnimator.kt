@@ -10,12 +10,13 @@ import kotlin.random.Random
  * Micro-animations (blink, ear twitch, neck swallow) and tail wag for one queen fox puppet on a card.
  * Blink / ear / neck are mutually exclusive and paced by [FoxSpadePuppetMicroAnimDriver].
  * [runtime] supplies suit-specific offsets, tail cadence, and micro-anim config (spade vs heart sheet).
+ * [tailLayer] is null when [FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif] is false.
  */
 class FoxSpadePuppetCardAnimator(
     private val hub: FaceCardPuppetAnimationHub,
     private val slices: FoxPuppetSheetLayout.PuppetSlices,
     private val runtime: FoxQueenPuppetBoardRuntime,
-    private val tailLayer: BaseImage,
+    private val tailLayer: BaseImage?,
     private val earLayer: BaseImage,
     private val neckLayer: BaseImage,
     private val headFrameLayers: List<BaseImage>,
@@ -23,6 +24,8 @@ class FoxSpadePuppetCardAnimator(
     phaseJitterSec: Double,
     private val motifBoundsLeft: Double,
     private val motifBoundsTop: Double,
+    private val animateTailWag: Boolean = true,
+    private val blinkOnlyMicroAnims: Boolean = false,
 ) : FoxSpadePuppetTickable {
 
     private val puppetOffsets = runtime.compositeOffsets
@@ -42,6 +45,7 @@ class FoxSpadePuppetCardAnimator(
         showHeadFrame = { frameIndex -> showHeadFrame(frameIndex) },
         applyEarPairIndex = { pairIndex -> applyEarPairIndex(pairIndex) },
         applyNeckFrameIndex = { neckIndex -> applyNeckFrameIndex(neckIndex) },
+        blinkOnlyMicroAnims = blinkOnlyMicroAnims,
     )
 
     init {
@@ -93,11 +97,13 @@ class FoxSpadePuppetCardAnimator(
     override fun tick(dtSec: Double) {
         microDriver.tick(dtSec)
 
+        if (!animateTailWag) return
+        val layer = tailLayer ?: return
         tailElapsed += dtSec
         if (tailElapsed >= tailFrameDuration) {
             tailElapsed = 0.0
             tailSequenceIndex = (tailSequenceIndex + 1) % tailSequence.size
-            applySlice(tailLayer, slices.tails[tailSequence[tailSequenceIndex]])
+            applySlice(layer, slices.tails[tailSequence[tailSequenceIndex]])
         }
     }
 }

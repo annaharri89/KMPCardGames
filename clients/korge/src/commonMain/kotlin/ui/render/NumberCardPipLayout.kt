@@ -23,10 +23,14 @@ internal object NumberCardPipLayout {
     )
 
     private fun pipArea(cardWidth: Double, cardHeight: Double): PipArea {
-        val left = pipAreaLeftInset
-        val top = pipAreaTopInset
-        val width = max(8.0, cardWidth - pipAreaLeftInset - pipAreaRightInset)
-        val height = max(8.0, cardHeight - pipAreaTopInset - pipAreaBottomInset)
+        val widthScale = cardWidth / 96.0
+        val heightScale = cardHeight / 132.0
+        val left = pipAreaLeftInset * widthScale
+        val top = pipAreaTopInset * heightScale
+        val rightInset = pipAreaRightInset * widthScale
+        val bottomInset = pipAreaBottomInset * heightScale
+        val width = max(8.0, cardWidth - left - rightInset)
+        val height = max(8.0, cardHeight - top - bottomInset)
         return PipArea(left, top, width, height)
     }
 
@@ -43,12 +47,14 @@ internal object NumberCardPipLayout {
         val area = pipArea(cardWidth, cardHeight)
         val pipWidth: Double
         val pipHeight: Double
+        val widthScale = cardWidth / 96.0
+        val heightScale = cardHeight / 132.0
         if (pipCount == 1) {
-            pipWidth = 24.0
-            pipHeight = 20.0
+            pipWidth = 28.0 * widthScale
+            pipHeight = 24.0 * heightScale
         } else {
-            pipWidth = 12.0
-            pipHeight = 10.0
+            pipWidth = 14.0 * widthScale
+            pipHeight = 12.0 * heightScale
         }
         slotsForPipCount(pipCount).forEach { (nx, ny) ->
             val centerX = area.left + nx * area.width

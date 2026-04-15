@@ -4,8 +4,6 @@ import domain.model.Suit
 import domain.readmodel.GameRenderModel
 import ui.layout.BoardLayout
 
-internal const val TABLEAU_CARD_OFFSET_Y_FOR_ANIMATION = 24.0
-
 /**
  * Screen Y of the top-left of the top visible card on [pileId] after [renderModel] is applied.
  * Matches [SolitaireBoardRenderer] card placement for tableau (stacked offset) and single-card piles.
@@ -15,8 +13,15 @@ internal fun expectedTopCardYForSolitairePile(
     renderModel: GameRenderModel,
     viewportWidth: Double,
     viewportHeight: Double,
-    tableauCardOffsetY: Double = TABLEAU_CARD_OFFSET_Y_FOR_ANIMATION,
 ): Double? {
+    val foundationSuitSlotOrder = listOf(
+        Suit.HEARTS,
+        Suit.DIAMONDS,
+        Suit.SPADES,
+        Suit.CLUBS,
+    )
+    val tableauCardOffsetY =
+        SolitaireBoardPlayfieldMetrics.forViewport(viewportWidth, viewportHeight).tableauCardOffsetY
     val layout = BoardLayout.create(
         viewportWidth = viewportWidth,
         viewportHeight = viewportHeight,
@@ -31,9 +36,9 @@ internal fun expectedTopCardYForSolitairePile(
         }
         pileId.startsWith("foundation-") -> {
             val suitKey = pileId.removePrefix("foundation-")
-            val suitIndex = Suit.entries.indexOfFirst { it.name.lowercase() == suitKey }
+            val suitIndex = foundationSuitSlotOrder.indexOfFirst { it.name.lowercase() == suitKey }
             if (suitIndex < 0) return null
-            val pile = renderModel.foundationPiles.getOrNull(suitIndex) ?: return null
+            val pile = renderModel.foundationPiles.firstOrNull { it.pileId == pileId } ?: return null
             if (pile.cards.isEmpty()) return null
             layout.foundationPiles[suitIndex].y
         }

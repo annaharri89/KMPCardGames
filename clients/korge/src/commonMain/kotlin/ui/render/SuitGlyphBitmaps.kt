@@ -11,12 +11,15 @@ import kotlin.math.abs
  */
 internal object SuitGlyphBitmaps {
 
-    private const val rasterSizePx = 64
+    private const val rasterSizePx = 128
 
-    private val cache = HashMap<Pair<Suit, Int>, Bitmap32>()
+    /** Bump when [insideSpade] / other paths change so cached bitmaps are not reused across geometry edits. */
+    private const val geometryStamp = 2
+
+    private val cache = HashMap<Triple<Suit, Int, Int>, Bitmap32>()
 
     fun bitmap(suit: Suit, color: RGBA): Bitmap32 {
-        val key = suit to color.value
+        val key = Triple(suit, color.value, geometryStamp)
         cache[key]?.let { return it }
         val bmp = Bitmap32(rasterSizePx, rasterSizePx, premultiplied = true)
         val w = rasterSizePx.toDouble()
@@ -75,9 +78,16 @@ internal object SuitGlyphBitmaps {
 
     private fun insideSpade(px: Double, py: Double, w: Double, h: Double): Boolean {
         val cx = w / 2.0
-        if (insideEllipse(px, py, cx, h * 0.26, w * 0.46, h * 0.22)) return true
-        if (pointInTriangle(px, py, cx, h * 0.98, w * 0.18, h * 0.38, w * 0.82, h * 0.38)) return true
-        return px in (cx - w * 0.07)..(cx + w * 0.07) && py >= h * 0.55
+        val stemHalf = w * 0.078
+        if (px in (cx - stemHalf)..(cx + stemHalf) && py in (h * 0.48)..(h * 0.96)) return true
+        if (pointInTriangle(px, py, cx, h * 0.05, w * 0.14, h * 0.40, w * 0.86, h * 0.40)) return true
+        if (py > h * 0.02) {
+            val lobeRx = w * 0.185
+            val lobeRy = h * 0.215
+            if (insideEllipse(px, py, cx - w * 0.22, h * 0.43, lobeRx, lobeRy)) return true
+            if (insideEllipse(px, py, cx + w * 0.22, h * 0.43, lobeRx, lobeRy)) return true
+        }
+        return false
     }
 
     private fun insideEllipse(px: Double, py: Double, cx: Double, cy: Double, rx: Double, ry: Double): Boolean {

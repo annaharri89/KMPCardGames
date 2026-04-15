@@ -28,11 +28,17 @@ private fun createFoxQueenPuppetMotifScaledInner(
     width: Double,
     height: Double,
     compositeOffsets: FoxPuppetSheetLayout.CompositeOffsets,
+    includeNeckInDesignBounds: Boolean = true,
 ): FoxMotifScaledInner {
-    val bounds = FoxPuppetSheetLayout.designBounds(compositeOffsets, slices)
+    val bounds = FoxPuppetSheetLayout.designBounds(
+        compositeOffsets,
+        slices,
+        includeTailInDesignBounds = FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif,
+        includeNeckInDesignBounds = includeNeckInDesignBounds,
+    )
     val uniformScale = min(width / bounds.width, height / bounds.height)
     val inner = Container().addTo(motifContainer)
-    inner.x = (width - bounds.width * uniformScale) / 2.0
+    inner.x = (width - bounds.width * uniformScale) / 2.0 + compositeOffsets.cardMotifInnerOffsetX
     inner.y = (height - bounds.height * uniformScale) / 2.0
     inner.scaleX = uniformScale
     inner.scaleY = uniformScale
@@ -45,8 +51,16 @@ internal fun layoutFoxQueenPuppetBoardMotif(
     width: Double,
     height: Double,
     compositeOffsets: FoxPuppetSheetLayout.CompositeOffsets,
+    showNeckLayer: Boolean = true,
 ) {
-    val kit = createFoxQueenPuppetMotifScaledInner(motifContainer, slices, width, height, compositeOffsets)
+    val kit = createFoxQueenPuppetMotifScaledInner(
+        motifContainer,
+        slices,
+        width,
+        height,
+        compositeOffsets,
+        includeNeckInDesignBounds = showNeckLayer,
+    )
     val inner = kit.inner
     val bounds = kit.bounds
     val offsets = kit.offsets
@@ -71,14 +85,18 @@ internal fun layoutFoxQueenPuppetBoardMotif(
         }
     }
 
-    placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    if (FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif) {
+        placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    }
     val bodyLayerScale = offsets.displayScale * offsets.bodyScaleMultiplier
     placeFoxPuppetLayer(slices.body, offsets.bodyX, offsets.bodyY, layerScale = bodyLayerScale)
-    placeFoxPuppetLayer(
-        slices.necks.first(),
-        FoxPuppetSheetLayout.neckLayerLeftXAlignedToFirstNeckFrame(offsets, slices, 0),
-        offsets.neckY,
-    )
+    if (showNeckLayer) {
+        placeFoxPuppetLayer(
+            slices.necks.first(),
+            FoxPuppetSheetLayout.neckLayerLeftXAlignedToFirstNeckFrame(offsets, slices, 0),
+            offsets.neckY,
+        )
+    }
     placeFoxPuppetLayer(slices.earPairs.first(), offsets.earX, offsets.earY)
     placeHead(
         slices.heads.first(),
@@ -111,6 +129,9 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
     height: Double,
     slotKey: String,
     runtime: FoxQueenPuppetBoardRuntime,
+    blinkOnlyMicroAnims: Boolean = false,
+    animateTailWag: Boolean = true,
+    showNeckLayer: Boolean = true,
 ): FoxSpadePuppetCardAnimator {
     val kit = createFoxQueenPuppetMotifScaledInner(
         motifContainer,
@@ -118,6 +139,7 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
         width,
         height,
         runtime.compositeOffsets,
+        includeNeckInDesignBounds = showNeckLayer,
     )
     val inner = kit.inner
     val bounds = kit.bounds
@@ -142,7 +164,12 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
             this.alpha = alpha
         }
 
-    val tailLayer = placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+    val tailLayer =
+        if (FoxQueenPuppetBoardTailVisibility.showTailOnBoardMotif) {
+            placeFoxPuppetLayer(slices.tails.first(), offsets.tailX, offsets.tailY)
+        } else {
+            null
+        }
     val bodyLayerScale = offsets.displayScale * offsets.bodyScaleMultiplier
     placeFoxPuppetLayer(slices.body, offsets.bodyX, offsets.bodyY, layerScale = bodyLayerScale)
     val neckLayer = placeFoxPuppetLayer(
@@ -150,6 +177,7 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
         FoxPuppetSheetLayout.neckLayerLeftXAlignedToFirstNeckFrame(offsets, slices, 0),
         offsets.neckY,
     )
+    if (!showNeckLayer) neckLayer.visible = false
     val earLayer = placeFoxPuppetLayer(slices.earPairs.first(), offsets.earX, offsets.earY)
     val headLayers = slices.heads.mapIndexed { frameIndex, headBitmap ->
         placeHead(
@@ -174,6 +202,8 @@ internal fun mountFoxQueenPuppetAnimatedBoardMotif(
         phaseJitterSec = jitter,
         motifBoundsLeft = bounds.left,
         motifBoundsTop = bounds.top,
+        animateTailWag = animateTailWag,
+        blinkOnlyMicroAnims = blinkOnlyMicroAnims,
     )
 }
 
@@ -298,6 +328,7 @@ class SuitSymbolPainter(
 /**
  * Renders Jack/Queen/King center art from an optional TexturePacker map, or from loaded fox puppet slices
  * for Queen of Spades / Queen of Hearts when no packed face texture is present for that card.
+ * For Queen of Hearts, loaded puppet slices take precedence so shared tuning flags apply.
  */
 class FaceCardAnimalPainter(
     private val sliceByBaseName: Map<String, RectSlice<Bitmap>>?,
@@ -319,9 +350,16 @@ class FaceCardAnimalPainter(
         motifContainer.x = x
         motifContainer.y = y
         val textureKey = faceTextureBaseName(rank, suit)
-        val slice = textureKey?.let { key ->
-            sliceByBaseName?.get(key) ?: sliceByBaseName?.get("$key.png")
-        }
+        val skipPackedTextureForFoxHeartQueen =
+            rank == Rank.QUEEN && suit == Suit.HEARTS && foxHeartPuppetSlices != null
+        val slice =
+            if (skipPackedTextureForFoxHeartQueen) {
+                null
+            } else {
+                textureKey?.let { key ->
+                    sliceByBaseName?.get(key) ?: sliceByBaseName?.get("$key.png")
+                }
+            }
         if (slice != null) {
             val sliceWidth = slice.width.toDouble()
             val sliceHeight = slice.height.toDouble()
@@ -359,7 +397,10 @@ class FaceCardAnimalPainter(
         if (rank == Rank.QUEEN && suit == Suit.HEARTS && foxHeartPuppetSlices != null) {
             val ctx = puppetDrawContext
             val heartRuntime = foxQueenPuppetBoardRuntime(FoxHeartPuppetSheet, foxHeartPuppetSlices, "fox_heart_card_puppet_frame")
-            val animator = if (ctx != null && ctx.animateFoxQueenSpade) {
+            val showHeartNeck = !FoxHeartQueenAnimationDebugFlags.hideNeckOnCard
+            val heartAnimatesOnBoard =
+                ctx != null && ctx.animateFoxQueenSpade && !FoxHeartQueenAnimationDebugFlags.suppressAllCardAnimations
+            val animator = if (heartAnimatesOnBoard) {
                 mountFoxQueenPuppetAnimatedBoardMotif(
                     hub = ctx.hub,
                     motifContainer = motifContainer,
@@ -368,6 +409,9 @@ class FaceCardAnimalPainter(
                     height = height,
                     slotKey = ctx.slotKey,
                     runtime = heartRuntime,
+                    blinkOnlyMicroAnims = FoxHeartQueenAnimationDebugFlags.suppressNonBlinkCardAnimations,
+                    animateTailWag = !FoxHeartQueenAnimationDebugFlags.suppressNonBlinkCardAnimations,
+                    showNeckLayer = showHeartNeck,
                 )
             } else {
                 layoutFoxQueenPuppetBoardMotif(
@@ -376,6 +420,7 @@ class FaceCardAnimalPainter(
                     width = width,
                     height = height,
                     compositeOffsets = heartRuntime.compositeOffsets,
+                    showNeckLayer = showHeartNeck,
                 )
                 null
             }

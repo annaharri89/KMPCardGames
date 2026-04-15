@@ -15,8 +15,8 @@ object FoxPuppetSheetLayout {
     const val DEFAULT_SHEET_HEIGHT_PX = 768
 
     data class CompositeOffsets(
-        /** Tuned for 1376×768 puppet slices (larger art than legacy 1024×571). */
-        val displayScale: Double = 0.782,
+        /** Per-sheet puppet scale (head/ears/tail/neck and sheet-pixel deltas); set per suit in [Spec.defaultCompositeOffsets]. */
+        val displayScale: Double,
         /** Body layer scale = [displayScale] * this; other layers use [displayScale] only. */
         val bodyScaleMultiplier: Double = 1.38,
         val tailX: Double = 763.0,
@@ -48,6 +48,11 @@ object FoxPuppetSheetLayout {
          * Index 0 stays the junction reference; all later swallow steps share this nudge.
          */
         val neckNonFirstFrameExtraStageX: Double = 0.0,
+        /**
+         * Added to the face-card fox motif inner container's x after uniform scale-to-fit centering; positive
+         * shifts the whole puppet right in the motif slot (unlike nudging every layer x, which the bounds math cancels).
+         */
+        val cardMotifInnerOffsetX: Double = 5.0,
     )
 
     data class PuppetSlices(
@@ -120,6 +125,7 @@ object FoxPuppetSheetLayout {
             FoxPuppetSheetRect(1107, 589, 253, 159),
         ),
         defaultCompositeOffsets = CompositeOffsets(
+            displayScale = 0.782,
             bodyScaleMultiplier = 1.38,
             bodyX = 465.0,
             bodyY = 112.0,
@@ -159,21 +165,22 @@ object FoxPuppetSheetLayout {
             FoxPuppetSheetRect(20, 420, 195, 151),
             FoxPuppetSheetRect(222, 420, 195, 151),
         ),
-        bodyRect = FoxPuppetSheetRect(427, 158, 387, 425),
+        bodyRect = FoxPuppetSheetRect(563, 158, 270, 425),
         tailRects = spadeSheetSpec.tailRects,
         neckRects = listOf(
             FoxPuppetSheetRect(199, 589, 206, 159),//2nd
             FoxPuppetSheetRect(20, 589, 206, 159),//1st
-            //FoxPuppetSheetRect(407, 589, 206, 159),//3rd
-            //FoxPuppetSheetRect(582, 589, 206, 159),//4th
-            //FoxPuppetSheetRect(804, 589, 206, 159),//5th
+            FoxPuppetSheetRect(407, 589, 206, 159),//3rd
+            FoxPuppetSheetRect(582, 589, 206, 159),//4th
+            FoxPuppetSheetRect(804, 589, 206, 159),//5th
 
         ),
         defaultCompositeOffsets = CompositeOffsets(
+            displayScale = 0.882,
             bodyScaleMultiplier = 1.18,
-            bodyX = 378.0,
+            bodyX = 508.0,
             bodyY = 88.0,
-            neckX = 530.0,
+            neckX = 560.0,
             neckY = 178.0,
             earX = 540.0,
             earY = -48.0,
@@ -184,7 +191,7 @@ object FoxPuppetSheetLayout {
         ),
         blinkHeadFrameIndices = listOf(0, 2, 0),
         blinkTransitionFps = 12.0,
-        blinkEyesClosedHoldSec = .4,
+        blinkEyesClosedHoldSec = .2,
         tailWagPingPongIndices = listOf(0, 1, 2, 3, 4, 3, 2, 1),
         tailWagFrameDurationSec = 0.3,
         earWagPingPongIndices = listOf(0, 1, 2, 3, 2, 1),
@@ -252,7 +259,12 @@ object FoxPuppetSheetLayout {
     @Suppress("UNUSED_PARAMETER")
     fun headLayerLeftX(offsets: CompositeOffsets, headFrameIndex: Int): Double = offsets.headX
 
-    fun designBounds(offsets: CompositeOffsets, slices: PuppetSlices): DesignBounds {
+    fun designBounds(
+        offsets: CompositeOffsets,
+        slices: PuppetSlices,
+        includeTailInDesignBounds: Boolean = true,
+        includeNeckInDesignBounds: Boolean = true,
+    ): DesignBounds {
         val s = offsets.displayScale
         val bodyS = s * offsets.bodyScaleMultiplier
         fun rect(left: Double, top: Double, pixelWidth: Int, pixelHeight: Int): DesignBounds =
@@ -283,13 +295,16 @@ object FoxPuppetSheetLayout {
         val earPairCount = slices.earPairs.size
         val neckBounds = neckScreenBounds(offsets, slices)
         val earBounds = earScreenBounds(offsets, slices, earPairCount)
-        val layers = listOf(
-            rect(offsets.tailX, offsets.tailY, slices.tails.first().width, slices.tails.first().height),
-            bodyBounds,
-            neckBounds,
-            earBounds,
-            headBounds,
-        )
+        val tailBounds =
+            rect(offsets.tailX, offsets.tailY, slices.tails.first().width, slices.tails.first().height)
+        val layers =
+            buildList {
+                if (includeTailInDesignBounds) add(tailBounds)
+                add(bodyBounds)
+                if (includeNeckInDesignBounds) add(neckBounds)
+                add(earBounds)
+                add(headBounds)
+            }
         return layers.reduce { acc, r ->
             DesignBounds(
                 kotlin.math.min(acc.left, r.left),
