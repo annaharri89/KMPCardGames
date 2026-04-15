@@ -8,10 +8,10 @@ import korlibs.korge.view.SolidRect
 import korlibs.time.DateTime
 import korlibs.time.TimeSpan
 import korlibs.time.seconds
-import ui.render.BoardDragPreview
-import ui.render.DraggableCardTarget
 import presentation.solitaire.UiIntent
-import ui.render.PileHitArea
+import presentation.solitaire.geometry.DraggableCardInteractionTarget
+import presentation.solitaire.geometry.PileHitRegion
+import ui.render.BoardDragPreview
 import ui.render.SolitaireRenderedBoard
 import kotlin.math.abs
 
@@ -49,36 +49,15 @@ internal fun resolveTapSelection(
 internal fun resolvePileIdAtPoint(
     x: Double,
     y: Double,
-    pileHitAreas: Collection<PileHitArea>,
-): String? {
-    return pileHitAreas.firstOrNull { pileHitArea ->
-        x >= pileHitArea.x &&
-            x <= pileHitArea.x + pileHitArea.width &&
-            y >= pileHitArea.y &&
-            y <= pileHitArea.y + pileHitArea.height
-    }?.pileId
-}
+    pileHitRegions: Collection<PileHitRegion>,
+): String? =
+    pileHitRegions.firstOrNull { it.bounds.containsPoint(x, y) }?.pileId
 
 /**
- * Wires KorGE pointer input on an already-built [ui.render.SolitaireRenderedBoard] to game actions.
+ * Handles clicks, taps, and drags for a [ui.render.SolitaireRenderedBoard].
  *
- * It does **not** own game state; it turns clicks and drags into [UiIntent]s (via the `dispatchIntent`
- * callback) and tells the scene when selection or drag preview should update. Typical flow:
- *
- * - **Toolbar buttons** (stock draw, recycle, auto-move, undo/redo) dispatch the matching intent and
- *   clear any pile selection.
- * - **Tap on piles / cards** uses a two-step “pick source, then destination” model; tapping **stock**
- *   always draws immediately.
- * - **Drag from a visible stack** (tableau / free-cell style targets) shows a [ui.render.BoardDragPreview]
- * while moving; on release, `onDragDropAttempt` runs so the scene can validate the drop and dispatch
- * a multi-card [UiIntent.DragMove] if appropriate.
- * - **Double-tap** on a waste or tableau **top** face-up card calls [onFoundationDoubleTapAttempt] so the
- * scene can auto-move a single card to its suit foundation with the same fly animation as drag-drop.
- *
- * Call [bind] after the renderer built views and hit areas so handlers attach to the right nodes.
- * Toolbar buttons are wired only on the first [bind]. Pile and card hit targets use **stable** view
- * instances across [render] calls, so [bind] attaches **one** [onClick]/[onMouseDrag] per view and updates
- * a fresh `latestRenderedBoard` each time so handlers read current piles and drag metadata.
+ * Converts pointer input into [UiIntent] calls and keeps selection/drag preview state.
+ * Call [bind] after each render so hit targets stay current.
  */
 class SolitaireInputController {
     companion object {
@@ -106,16 +85,17 @@ class SolitaireInputController {
         val dropY: Double,
     )
 
-    /** Attaches click and drag handlers; callbacks forward intents, selection, preview, and undo/redo. */
+    /** Attaches input handlers and wires callbacks for intents, selection, drag preview, undo, and redo. */
     fun bind(
         renderedBoard: SolitaireRenderedBoard,
         dispatchIntent: (UiIntent) -> Unit,
         onSelectionChanged: (String?) -> Unit,
         onDragPreviewChanged: (BoardDragPreview?) -> Unit,
         onDragDropAttempt: (DragDropAttempt) -> Unit,
-        onFoundationDoubleTapAttempt: (tapStageX: Double, tapStageY: Double, live: DraggableCardTarget) -> Unit,
+        onFoundationDoubleTapAttempt: (tapStageX: Double, tapStageY: Double, live: DraggableCardInteractionTarget) -> Unit,
         onUndo: () -> Unit,
         onRedo: () -> Unit,
+        onRequestNewGameConfirmation: () -> Unit,
     ) {
         latestRenderedBoard = renderedBoard
 
@@ -150,6 +130,12 @@ class SolitaireInputController {
                 selectedSourceCardCount = 1
                 onSelectionChanged(null)
             }
+            renderedBoard.newGameButton.onClick {
+                onRequestNewGameConfirmation()
+                selectedSourcePileId = null
+                selectedSourceCardCount = 1
+                onSelectionChanged(null)
+            }
             controlsAreBound = true
         }
 
@@ -168,10 +154,9 @@ class SolitaireInputController {
             }
         }
 
-        val currentCardRects = renderedBoard.draggableCardTargets.map { it.cardView }.toSet()
+        val currentCardRects = renderedBoard.draggableTopCardRects.toSet()
         cardRectsWithDragInput.retainAll { it in currentCardRects }
-        renderedBoard.draggableCardTargets.forEach { draggableCardTarget ->
-            val cardRect = draggableCardTarget.cardView
+        renderedBoard.draggableTopCardRects.forEach { cardRect ->
             if (cardRect in cardRectsWithDragInput) return@forEach
             cardRectsWithDragInput.add(cardRect)
             bindTopCardInteractionForStableCardRect(
@@ -222,8 +207,8 @@ class SolitaireInputController {
         onSelectionChanged(tapSelectionResolution.nextSelectedSourcePileId)
     }
 
-    private fun liveDraggableForCardRect(cardRect: SolidRect): DraggableCardTarget? =
-        latestRenderedBoard?.draggableCardTargets?.firstOrNull { it.cardView === cardRect }
+    private fun liveDraggableForCardRect(cardRect: SolidRect): DraggableCardInteractionTarget? =
+        latestRenderedBoard?.draggableForTopCardSolidRect(cardRect)
 
     private fun bindTopCardInteractionForStableCardRect(
         cardRect: SolidRect,
@@ -231,7 +216,7 @@ class SolitaireInputController {
         onSelectionChanged: (String?) -> Unit,
         onDragPreviewChanged: (BoardDragPreview?) -> Unit,
         onDragDropAttempt: (DragDropAttempt) -> Unit,
-        onFoundationDoubleTapAttempt: (Double, Double, DraggableCardTarget) -> Unit,
+        onFoundationDoubleTapAttempt: (Double, Double, DraggableCardInteractionTarget) -> Unit,
     ) {
         cardRect.onClick { mouse ->
             val live = liveDraggableForCardRect(cardRect) ?: return@onClick
@@ -283,7 +268,7 @@ class SolitaireInputController {
             val destinationPileId = findPileIdAt(
                 x = dragInfo.cx,
                 y = dragInfo.cy,
-                pileHitAreas = board.pileHitAreas.values,
+                pileHitRegions = board.interaction.pileHitRegionsByPileId.values,
             )
             if (dragInfo.end) {
                 onDragDropAttempt(
@@ -315,16 +300,14 @@ class SolitaireInputController {
     private fun findPileIdAt(
         x: Double,
         y: Double,
-        pileHitAreas: Collection<PileHitArea>,
-    ): String? {
-        return resolvePileIdAtPoint(
-            x = x,
-            y = y,
-            pileHitAreas = pileHitAreas,
-        )
-    }
+        pileHitRegions: Collection<PileHitRegion>,
+    ): String? = resolvePileIdAtPoint(
+        x = x,
+        y = y,
+        pileHitRegions = pileHitRegions,
+    )
 
-    private fun isSurfaceEligibleForFoundationDoubleTap(live: DraggableCardTarget): Boolean {
+    private fun isSurfaceEligibleForFoundationDoubleTap(live: DraggableCardInteractionTarget): Boolean {
         if (live.pileId.startsWith("foundation-") || live.pileId == "stock") {
             return false
         }

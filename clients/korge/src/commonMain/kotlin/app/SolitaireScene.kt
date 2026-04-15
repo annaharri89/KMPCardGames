@@ -10,20 +10,18 @@ import ui.input.SolitaireInputController
 import ui.render.FoxHeartPuppetSheet
 import ui.render.FoxPuppetSheetLayout
 import ui.render.BoardDragPreview
-import ui.render.DraggableCardTarget
+import presentation.solitaire.geometry.DraggableCardInteractionTarget
+import ui.overlay.NewGameConfirmDialog
 import ui.render.FoxSpadePuppetSheet
 import ui.render.SolitaireBoardRenderer
 import ui.render.SuitPipBitmapNormalize
 import ui.render.expectedTopCardYForSolitairePile
 
 /**
- * KorGE entry for the playable solitaire screen: background, [SolitaireGameStore], [SolitaireBoardRenderer],
- * and [SolitaireInputController]. Card faces use text and shape fallbacks unless a TexturePacker atlas,
- * [scripts/render_simple_suit_pips.py] assets (621×586 source): heart, diamond, spade, club PNGs under `debug/` (long edge
- * clamped at load for GPU-friendly size), or the debug fox
- * puppet sheets (spade + heart) are loaded; the board
- * re-renders and input re-binds after each state change. Drag-drop and foundation double-tap run a short
- * [SolitaireBoardRenderer.animateCardTravel] tween before showing the post-move layout.
+ * Playable solitaire scene for KorGE.
+ *
+ * Wires store, renderer, and input; then loads optional pip and fox-sheet assets from `debug/`.
+ * Drag-drop and foundation double-tap use [SolitaireBoardRenderer.animateCardTravel] before applying final UI state.
  */
 class SolitaireScene {
     companion object {
@@ -32,7 +30,7 @@ class SolitaireScene {
         private const val SIMPLE_SUIT_PIP_LOG_TAG = "SimpleSuitPip"
     }
 
-    /** Attaches the full solitaire UI tree and handlers to [rootContainer] (usually the KorGE stage). */
+    /** Builds the solitaire UI under [rootContainer] and binds input handlers. */
     fun install(rootContainer: Stage) {
         with(rootContainer) {
             val solitaireGameStore = SolitaireGameStore()
@@ -60,8 +58,26 @@ class SolitaireScene {
             val solitaireInputController = SolitaireInputController()
             lateinit var latestRenderedBoard: ui.render.SolitaireRenderedBoard
             var moveAnimationRunning = false
+            var newGameConfirmDialogInstalled = false
 
             fun renderAndBind(bindInput: Boolean = true) {
+                if (!newGameConfirmDialogInstalled) {
+                    newGameConfirmDialogInstalled = true
+                    NewGameConfirmDialog.install(
+                        modalLayer = solitaireBoardRenderer.modalOverlayRoot,
+                        stageWidth = views.virtualWidth.toDouble(),
+                        stageHeight = views.virtualHeight.toDouble(),
+                        onUserConfirmedNewGame = {
+                            solitaireBoardRenderer.setModalOverlayVisible(false)
+                            solitaireUiState = solitaireGameStore.start().copy(selectedSourcePileId = null)
+                            invalidMoveOverlay.alpha = 0.0
+                            renderAndBind()
+                        },
+                        onUserCancelledNewGame = {
+                            solitaireBoardRenderer.setModalOverlayVisible(false)
+                        },
+                    )
+                }
                 latestRenderedBoard = solitaireBoardRenderer.render(
                     uiState = solitaireUiState,
                     selectedPileId = solitaireUiState.selectedSourcePileId,
@@ -71,7 +87,7 @@ class SolitaireScene {
                 solitaireInputController.bind(
                     renderedBoard = latestRenderedBoard,
                     dispatchIntent = { uiIntent ->
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireUiState = solitaireGameStore.dispatchIntent(uiIntent)
                         solitaireUiState = solitaireUiState.copy(selectedSourcePileId = null)
                         if (!solitaireUiState.wasLastMoveAccepted) {
@@ -82,16 +98,16 @@ class SolitaireScene {
                         renderAndBind()
                     },
                     onSelectionChanged = { selectedPileId ->
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireUiState = solitaireUiState.copy(selectedSourcePileId = selectedPileId)
                         renderAndBind()
                     },
                     onDragPreviewChanged = { dragPreview ->
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireBoardRenderer.renderDragPreview(dragPreview)
                     },
                     onDragDropAttempt = { dragDropAttempt ->
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = true)
                         val hasDropTarget =
                             dragDropAttempt.destinationPileId != null &&
@@ -112,8 +128,9 @@ class SolitaireScene {
                         } else {
                             dragDropAttempt.sourcePileId
                         }
-                        val animationTargetHitArea = latestRenderedBoard.pileHitAreas[pileIdForAnimationTarget]
-                        if (animationTargetHitArea == null) {
+                        val animationTargetBounds =
+                            latestRenderedBoard.interaction.pileHitRegionsByPileId[pileIdForAnimationTarget]?.bounds
+                        if (animationTargetBounds == null) {
                             solitaireUiState = stateAfterDrop.copy(selectedSourcePileId = null)
                             invalidMoveOverlay.alpha = if (stateAfterDrop.wasLastMoveAccepted) 0.0 else 0.22
                             renderAndBind()
@@ -132,14 +149,14 @@ class SolitaireScene {
                                 viewportHeight = views.virtualHeight.toDouble(),
                             )
                         }
-                        val animationEndY = expectedTopY ?: animationTargetHitArea.y
+                        val animationEndY = expectedTopY ?: animationTargetBounds.y
                         moveAnimationRunning = true
                         launchImmediately(coroutineContext) {
                             solitaireBoardRenderer.animateCardTravel(
                                 card = dragDropAttempt.card,
                                 startX = dragDropAttempt.dropX,
                                 startY = dragDropAttempt.dropY,
-                                endX = animationTargetHitArea.x,
+                                endX = animationTargetBounds.x,
                                 endY = animationEndY,
                                 isMoveAccepted = stateAfterDrop.wasLastMoveAccepted,
                             )
@@ -149,8 +166,8 @@ class SolitaireScene {
                             renderAndBind()
                         }
                     },
-                    onFoundationDoubleTapAttempt = { tapStageX, tapStageY, live: DraggableCardTarget ->
-                        if (moveAnimationRunning) return@bind
+                    onFoundationDoubleTapAttempt = { tapStageX, tapStageY, live: DraggableCardInteractionTarget ->
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         val destinationPileId = "foundation-${live.card.suit.name.lowercase()}"
                         solitaireBoardRenderer.renderDragPreview(
                             BoardDragPreview(
@@ -181,8 +198,9 @@ class SolitaireScene {
                             return@bind
                         }
                         val pileIdForAnimationTarget = destinationPileId
-                        val animationTargetHitArea = latestRenderedBoard.pileHitAreas[pileIdForAnimationTarget]
-                        if (animationTargetHitArea == null) {
+                        val animationTargetBounds =
+                            latestRenderedBoard.interaction.pileHitRegionsByPileId[pileIdForAnimationTarget]?.bounds
+                        if (animationTargetBounds == null) {
                             solitaireBoardRenderer.clearDragPreviewGhost(retainSourceHidden = false)
                             solitaireUiState = stateAfterDrop.copy(selectedSourcePileId = null)
                             invalidMoveOverlay.alpha = 0.0
@@ -202,14 +220,14 @@ class SolitaireScene {
                                 viewportHeight = views.virtualHeight.toDouble(),
                             )
                         }
-                        val animationEndY = expectedTopY ?: animationTargetHitArea.y
+                        val animationEndY = expectedTopY ?: animationTargetBounds.y
                         moveAnimationRunning = true
                         launchImmediately(coroutineContext) {
                             solitaireBoardRenderer.animateCardTravel(
                                 card = live.card,
                                 startX = tapStageX,
                                 startY = tapStageY,
-                                endX = animationTargetHitArea.x,
+                                endX = animationTargetBounds.x,
                                 endY = animationEndY,
                                 isMoveAccepted = true,
                             )
@@ -220,16 +238,20 @@ class SolitaireScene {
                         }
                     },
                     onUndo = {
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireUiState = solitaireGameStore.undo()
                         solitaireUiState = solitaireUiState.copy(selectedSourcePileId = null)
                         renderAndBind()
                     },
                     onRedo = {
-                        if (moveAnimationRunning) return@bind
+                        if (moveAnimationRunning || solitaireBoardRenderer.isModalOverlayVisible()) return@bind
                         solitaireUiState = solitaireGameStore.redo()
                         solitaireUiState = solitaireUiState.copy(selectedSourcePileId = null)
                         renderAndBind()
+                    },
+                    onRequestNewGameConfirmation = lambda@{
+                        if (moveAnimationRunning) return@lambda
+                        solitaireBoardRenderer.setModalOverlayVisible(true)
                     },
                 )
             }

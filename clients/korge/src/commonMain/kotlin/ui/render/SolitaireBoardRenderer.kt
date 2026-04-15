@@ -3,12 +3,21 @@ package ui.render
 import app.cardThemeSpec
 import presentation.solitaire.CardTheme
 import presentation.solitaire.SolitaireUiState
-import domain.model.CardColor
 import domain.model.Rank
-import domain.model.Suit
 import domain.readmodel.CardFace
 import domain.readmodel.CardViewModel
 import domain.readmodel.GameRenderModel
+import domain.readmodel.rankAbbrev
+import domain.readmodel.usesRedSuitInk
+import presentation.solitaire.geometry.AxisAlignedRect
+import presentation.solitaire.geometry.BoardLayout
+import presentation.solitaire.geometry.DraggableCardInteractionTarget
+import presentation.solitaire.geometry.PileHitRegion
+import presentation.solitaire.geometry.SolitaireBoardInteractionSnapshot
+import presentation.solitaire.geometry.calculateTableauHitHeight
+import presentation.solitaire.geometry.foundationSuitsVisualLeftToRight
+import presentation.solitaire.geometry.isHiddenCard
+import presentation.solitaire.geometry.SolitaireBoardLayout
 import korlibs.image.color.Colors
 import korlibs.image.color.RGBA
 import korlibs.korge.tween.get
@@ -23,8 +32,6 @@ import korlibs.korge.view.addTo
 import korlibs.korge.view.solidRect
 import korlibs.korge.view.text
 import korlibs.time.seconds
-import ui.layout.BoardLayout
-import kotlin.math.max
 
 private fun Container.removeAllChildViews() {
     while (numChildren > 0) {
@@ -32,46 +39,26 @@ private fun Container.removeAllChildViews() {
     }
 }
 
-internal fun calculateTableauHitHeight(
-    cardHeight: Double,
-    tableauCardOffsetY: Double,
-    cardCount: Int,
-): Double {
-    return cardHeight + (max(0, cardCount - 1) * tableauCardOffsetY)
-}
-
-internal fun isHiddenCard(cardViewModel: CardViewModel): Boolean =
-    cardViewModel.face is CardFace.Down
-
-data class SolitaireRenderedBoard(
+/** Result of [SolitaireBoardRenderer.render]: hit-test metadata plus stable views for pointer binding. */
+class SolitaireRenderedBoard(
+    val interaction: SolitaireBoardInteractionSnapshot,
     val pileTapTargets: Map<String, SolidRect>,
-    val pileHitAreas: Map<String, PileHitArea>,
-    val draggableCardTargets: List<DraggableCardTarget>,
+    val draggableTopCardRects: List<SolidRect>,
     val stockButton: Text,
     val recycleButton: Text,
     val autoMoveButton: Text,
     val undoButton: Text,
     val redoButton: Text,
-)
+    val newGameButton: Text,
+) {
+    fun draggableForTopCardSolidRect(cardRect: SolidRect): DraggableCardInteractionTarget? {
+        val index = draggableTopCardRects.indexOfFirst { it === cardRect }
+        if (index < 0) return null
+        return interaction.draggableTopCards.getOrNull(index)
+    }
+}
 
-data class PileHitArea(
-    val pileId: String,
-    val x: Double,
-    val y: Double,
-    val width: Double,
-    val height: Double,
-)
-
-data class DraggableCardTarget(
-    val pileId: String,
-    val card: CardViewModel,
-    val cardCount: Int,
-    /** Cards moved with this drag, top-most first (matches tableau order from grab point through pile bottom). */
-    val stackCards: List<CardViewModel>,
-    val cardView: SolidRect,
-)
-
-/** [x]/[y] are stage coordinates of the pointer; the drag ghost is drawn centered on the top card of [stackCards]. */
+/** Drag preview in stage coordinates; ghost centers on the top card in [stackCards]. */
 data class BoardDragPreview(
     val sourcePileId: String,
     val sourceCardCount: Int,
@@ -83,10 +70,9 @@ data class BoardDragPreview(
 }
 
 /**
- * Builds the solitaire board under [rootContainer] using a board layer, HUD overlay, and drag overlay.
- * [boardLayer] and card views are **persistent**; [render] updates pile slots and syncs card content when
- * models change so face-card puppet [addUpdater] animation survives moves. Callers still re-bind input
- * with each returned [SolitaireRenderedBoard].
+ * Renders the solitaire board in persistent layers under [rootContainer].
+ *
+ * [render] updates existing slots/views so card animation state can survive board updates.
  */
 class SolitaireBoardRenderer(
     private val rootContainer: Container,
@@ -95,12 +81,6 @@ class SolitaireBoardRenderer(
 ) {
     companion object {
         private const val THEME_RENDERER_LOG_TAG = "KawaiiThemeRenderer"
-        private val FOUNDATION_SUIT_SLOT_ORDER = listOf(
-            Suit.HEARTS,
-            Suit.DIAMONDS,
-            Suit.SPADES,
-            Suit.CLUBS,
-        )
     }
 
     private var playfieldMetrics = SolitaireBoardPlayfieldMetrics.forViewport(viewportWidth, viewportHeight)
@@ -167,10 +147,7 @@ class SolitaireBoardRenderer(
         }
     }
 
-    /**
-     * Optional TexturePacker atlas for suit symbols and face-card bitmaps. When a slice exists it wins over
-     * hand-authored assets (e.g. [setFoxSpadePuppetSlices] / [setFoxHeartPuppetSlices] for queen fox puppets).
-     */
+    /** Optional TexturePacker atlas. Atlas slices take precedence over fallback suit/face assets. */
     fun setTexturePackerSlices(sliceByBaseName: Map<String, RectSlice<Bitmap>>?) {
         texturePackerSliceByBaseName = sliceByBaseName
         suitSymbolPainter = newSuitSymbolPainter()
@@ -178,9 +155,7 @@ class SolitaireBoardRenderer(
         contentEpoch++
     }
 
-    /**
-     * Flat debug pips (621×586); uniform scale + center in [SuitSymbolPainter]. Null keeps atlas / glyph fallback for that suit.
-     */
+    /** Sets optional debug suit pips; null keeps atlas/glyph fallback for that suit. */
     fun setSimpleSuitPipBitmaps(
         hearts: Bitmap?,
         diamonds: Bitmap?,
@@ -195,14 +170,14 @@ class SolitaireBoardRenderer(
         contentEpoch++
     }
 
-    /** Slices from [debug/fox_spade_puppet_sheet.png]; used for Queen of Spades when no packed face texture is present. */
+    /** Sets Q-spade fox slices used when packed face art is unavailable. */
     fun setFoxSpadePuppetSlices(slices: FoxPuppetSheetLayout.PuppetSlices?) {
         foxSpadePuppetSlices = slices
         faceCardAnimalPainter = FaceCardAnimalPainter(texturePackerSliceByBaseName, slices, foxHeartPuppetSlices)
         contentEpoch++
     }
 
-    /** Slices from [debug/fox_heart_puppet_sheet.png]; used for Queen of Hearts when no packed face texture is present. */
+    /** Sets Q-heart fox slices used when packed face art is unavailable. */
     fun setFoxHeartPuppetSlices(slices: FoxPuppetSheetLayout.PuppetSlices?) {
         foxHeartPuppetSlices = slices
         faceCardAnimalPainter = FaceCardAnimalPainter(texturePackerSliceByBaseName, foxSpadePuppetSlices, slices)
@@ -213,6 +188,12 @@ class SolitaireBoardRenderer(
     private val dragLayer = Container().addTo(rootContainer).also { layer ->
         layer.mouseEnabled = false
     }
+    /** Full-viewport modal layer kept above [dragLayer]. */
+    private val modalOverlayLayer = Container().addTo(rootContainer).also { layer ->
+        layer.visible = false
+        layer.mouseEnabled = false
+    }
+    val modalOverlayRoot: Container get() = modalOverlayLayer
     private val statusText = overlayLayer.text(
         text = "",
         textSize = 24.0,
@@ -258,6 +239,10 @@ class SolitaireBoardRenderer(
         x = 450.0
         y = 24.0
     }
+    private val newGameButton = overlayLayer.text("New game", textSize = 24.0, color = Colors.WHITE) {
+        x = 550.0
+        y = 24.0
+    }
 
     init {
         positionHudOverlay()
@@ -293,6 +278,9 @@ class SolitaireBoardRenderer(
         redoButton.textSize = primary
         redoButton.x = w * (450.0 / 1280.0)
         redoButton.y = topBarY
+        newGameButton.textSize = primary
+        newGameButton.x = w * (550.0 / 1280.0)
+        newGameButton.y = topBarY
     }
 
     private var dragGhostView: Container? = null
@@ -300,7 +288,7 @@ class SolitaireBoardRenderer(
     private var hiddenDragSourcePileId: String? = null
     private var hiddenDragSourceCardCount: Int = 0
 
-    /** Lays out piles and cards from [uiState], updates HUD text, and returns targets for [ui.input.SolitaireInputController]. */
+    /** Lays out piles/cards for [uiState], updates HUD text, and returns interaction targets. */
     fun render(
         uiState: SolitaireUiState,
         selectedPileId: String? = null,
@@ -324,8 +312,10 @@ class SolitaireBoardRenderer(
         }
 
         val pileTapTargets = linkedMapOf<String, SolidRect>()
-        val pileHitAreas = linkedMapOf<String, PileHitArea>()
-        val draggableCardTargets = mutableListOf<DraggableCardTarget>()
+        val pileHitRegions = linkedMapOf<String, PileHitRegion>()
+        val draggableNeutrals = mutableListOf<DraggableCardInteractionTarget>()
+        val draggableRects = mutableListOf<SolidRect>()
+        var nextDragHandleId = 0
 
         val stockSlot = syncPileSlot(
             pileId = "stock",
@@ -335,7 +325,7 @@ class SolitaireBoardRenderer(
             isSelected = selectedPileId == "stock",
         )
         pileTapTargets["stock"] = stockSlot.first
-        pileHitAreas["stock"] = stockSlot.second
+        pileHitRegions["stock"] = stockSlot.second
 
         val wasteSlot = syncPileSlot(
             pileId = "waste",
@@ -345,10 +335,10 @@ class SolitaireBoardRenderer(
             isSelected = selectedPileId == "waste",
         )
         pileTapTargets["waste"] = wasteSlot.first
-        pileHitAreas["waste"] = wasteSlot.second
+        pileHitRegions["waste"] = wasteSlot.second
 
         boardLayout.foundationPiles.forEachIndexed { index, pileLayout ->
-            val suit = FOUNDATION_SUIT_SLOT_ORDER[index]
+            val suit = foundationSuitsVisualLeftToRight[index]
             val pileId = "foundation-${suit.name.lowercase()}"
             val foundationSlot = syncPileSlot(
                 pileId = pileId,
@@ -358,7 +348,7 @@ class SolitaireBoardRenderer(
                 isSelected = selectedPileId == pileId,
             )
             pileTapTargets[pileId] = foundationSlot.first
-            pileHitAreas[pileId] = foundationSlot.second
+            pileHitRegions[pileId] = foundationSlot.second
         }
 
         boardLayout.tableauPiles.forEachIndexed { index, pileLayout ->
@@ -378,7 +368,7 @@ class SolitaireBoardRenderer(
                 isSelected = selectedPileId == pileId,
             )
             pileTapTargets[pileId] = tableauSlot.first
-            pileHitAreas[pileId] = tableauSlot.second
+            pileHitRegions[pileId] = tableauSlot.second
         }
 
         syncFoundationSuitGlyphs(boardLayout)
@@ -388,34 +378,54 @@ class SolitaireBoardRenderer(
             renderModel = renderModel,
             x = boardLayout.wastePile.x,
             y = boardLayout.wastePile.y,
-            draggableCardTargets = draggableCardTargets,
+            draggableNeutrals = draggableNeutrals,
+            draggableRects = draggableRects,
+            nextDragHandleId = { nextDragHandleId++ },
         )
         syncFoundationCards(
             renderModel = renderModel,
             boardLayout = boardLayout,
-            draggableCardTargets = draggableCardTargets,
+            draggableNeutrals = draggableNeutrals,
+            draggableRects = draggableRects,
+            nextDragHandleId = { nextDragHandleId++ },
         )
         syncTableauCards(
             renderModel = renderModel,
             boardLayout = boardLayout,
-            draggableCardTargets = draggableCardTargets,
+            draggableNeutrals = draggableNeutrals,
+            draggableRects = draggableRects,
+            nextDragHandleId = { nextDragHandleId++ },
         )
         clearDragPreviewGhost(retainSourceHidden = false)
         updateHud(uiState, renderModel)
 
         restoreRootLayerOrderAfterBoardRebuild()
 
+        val pileTapBoundsByPileId = pileHitRegions.mapValues { (_, region) -> region.bounds }
+        val interaction = SolitaireBoardInteractionSnapshot(
+            pileTapBoundsByPileId = pileTapBoundsByPileId,
+            pileHitRegionsByPileId = pileHitRegions,
+            draggableTopCards = draggableNeutrals,
+        )
         return SolitaireRenderedBoard(
+            interaction = interaction,
             pileTapTargets = pileTapTargets,
-            pileHitAreas = pileHitAreas,
-            draggableCardTargets = draggableCardTargets,
+            draggableTopCardRects = draggableRects,
             stockButton = stockButton,
             recycleButton = recycleButton,
             autoMoveButton = autoMoveButton,
             undoButton = undoButton,
             redoButton = redoButton,
+            newGameButton = newGameButton,
         )
     }
+
+    fun setModalOverlayVisible(visible: Boolean) {
+        modalOverlayLayer.visible = visible
+        modalOverlayLayer.mouseEnabled = visible
+    }
+
+    fun isModalOverlayVisible(): Boolean = modalOverlayLayer.visible
 
     private fun resetBoardChromeForViewportChange() {
         pileSlotById.clear()
@@ -471,7 +481,7 @@ class SolitaireBoardRenderer(
         highlightColor: RGBA,
         slotHeight: Double = cardHeight,
         isSelected: Boolean = false,
-    ): Pair<SolidRect, PileHitArea> {
+    ): Pair<SolidRect, PileHitRegion> {
         val slotFillColor = if (isSelected) {
             highlightColor.withAd(0.72)
         } else {
@@ -491,21 +501,23 @@ class SolitaireBoardRenderer(
         slot.width = cardWidth
         slot.height = slotHeight
         slot.color = slotFillColor
-        val hitArea = PileHitArea(
+        val hitRegion = PileHitRegion(
             pileId = pileId,
-            x = x,
-            y = y,
-            width = cardWidth,
-            height = slotHeight,
+            bounds = AxisAlignedRect(
+                x = x,
+                y = y,
+                width = cardWidth,
+                height = slotHeight,
+            ),
         )
-        return slot to hitArea
+        return slot to hitRegion
     }
 
-    private fun syncFoundationSuitGlyphs(boardLayout: ui.layout.SolitaireBoardLayout) {
+    private fun syncFoundationSuitGlyphs(boardLayout: SolitaireBoardLayout) {
         while (foundationSuitContainer.numChildren < 4) {
             Container().addTo(foundationSuitContainer)
         }
-        FOUNDATION_SUIT_SLOT_ORDER.forEachIndexed { index, suit ->
+        foundationSuitsVisualLeftToRight.forEachIndexed { index, suit ->
             val pileLayout = boardLayout.foundationPiles[index]
             val holder = foundationSuitContainer.getChildAt(index) as Container
             holder.removeAllChildViews()
@@ -532,7 +544,9 @@ class SolitaireBoardRenderer(
         renderModel: GameRenderModel,
         x: Double,
         y: Double,
-        draggableCardTargets: MutableList<DraggableCardTarget>,
+        draggableNeutrals: MutableList<DraggableCardInteractionTarget>,
+        draggableRects: MutableList<SolidRect>,
+        nextDragHandleId: () -> Int,
     ) {
         val topWasteCard = renderModel.wastePile.cards.lastOrNull()
         if (topWasteCard == null) {
@@ -552,22 +566,27 @@ class SolitaireBoardRenderer(
             slotKey = "waste",
             animateFoxQueenSpade = true,
         )
-        draggableCardTargets += DraggableCardTarget(
+        val cardRect = binding.cardRect
+        draggableRects += cardRect
+        draggableNeutrals += DraggableCardInteractionTarget(
+            handleId = nextDragHandleId(),
             pileId = "waste",
             card = topWasteCard,
             cardCount = 1,
             stackCards = listOf(topWasteCard),
-            cardView = binding.cardRect,
+            topCardBounds = AxisAlignedRect(cardRect.x, cardRect.y, cardRect.width, cardRect.height),
         )
     }
 
     private fun syncFoundationCards(
         renderModel: GameRenderModel,
-        boardLayout: ui.layout.SolitaireBoardLayout,
-        draggableCardTargets: MutableList<DraggableCardTarget>,
+        boardLayout: SolitaireBoardLayout,
+        draggableNeutrals: MutableList<DraggableCardInteractionTarget>,
+        draggableRects: MutableList<SolidRect>,
+        nextDragHandleId: () -> Int,
     ) {
         val foundationPileById = renderModel.foundationPiles.associateBy { it.pileId }
-        FOUNDATION_SUIT_SLOT_ORDER.forEachIndexed { index, suit ->
+        foundationSuitsVisualLeftToRight.forEachIndexed { index, suit ->
             val pileId = "foundation-${suit.name.lowercase()}"
             val pileViewModel = foundationPileById[pileId]
             val topCard = pileViewModel?.cards?.lastOrNull()
@@ -593,20 +612,25 @@ class SolitaireBoardRenderer(
                 slotKey = "foundation-$index",
                 animateFoxQueenSpade = true,
             )
-            draggableCardTargets += DraggableCardTarget(
+            val topRect = binding.cardRect
+            draggableRects += topRect
+            draggableNeutrals += DraggableCardInteractionTarget(
+                handleId = nextDragHandleId(),
                 pileId = pileId,
                 card = topCard,
                 cardCount = 1,
                 stackCards = listOf(topCard),
-                cardView = binding.cardRect,
+                topCardBounds = AxisAlignedRect(topRect.x, topRect.y, topRect.width, topRect.height),
             )
         }
     }
 
     private fun syncTableauCards(
         renderModel: GameRenderModel,
-        boardLayout: ui.layout.SolitaireBoardLayout,
-        draggableCardTargets: MutableList<DraggableCardTarget>,
+        boardLayout: SolitaireBoardLayout,
+        draggableNeutrals: MutableList<DraggableCardInteractionTarget>,
+        draggableRects: MutableList<SolidRect>,
+        nextDragHandleId: () -> Int,
     ) {
         renderModel.tableauPiles.forEachIndexed { columnIndex, pileViewModel ->
             val pileLayout = boardLayout.tableauPiles[columnIndex]
@@ -638,12 +662,15 @@ class SolitaireBoardRenderer(
                 if (isVisibleTableauCard) {
                     val cardCountFromSelection = cards.size - cardIndex
                     val stackCards = cards.subList(cardIndex, cards.size)
-                    draggableCardTargets += DraggableCardTarget(
+                    val topRect = binding.cardRect
+                    draggableRects += topRect
+                    draggableNeutrals += DraggableCardInteractionTarget(
+                        handleId = nextDragHandleId(),
                         pileId = pileViewModel.pileId,
                         card = card,
                         cardCount = cardCountFromSelection,
                         stackCards = stackCards,
-                        cardView = binding.cardRect,
+                        topCardBounds = AxisAlignedRect(topRect.x, topRect.y, topRect.width, topRect.height),
                     )
                 }
             }
@@ -724,9 +751,9 @@ class SolitaireBoardRenderer(
             return cardRect
         }
         val visibleRank = (card.face as CardFace.Up).rank
-        val rankColor = if (card.color == CardColor.RED) activeThemeSpec.redSuitColor else activeThemeSpec.blackSuitColor
+        val rankColor = if (card.usesRedSuitInk()) activeThemeSpec.redSuitColor else activeThemeSpec.blackSuitColor
         parentContainer.text(
-            text = rankShortLabel(visibleRank),
+            text = card.rankAbbrev(),
             textSize = activeThemeSpec.rankTextSize * cornerScale,
             color = rankColor,
         ) {
@@ -850,27 +877,13 @@ class SolitaireBoardRenderer(
         }
     }
 
-    private fun rankShortLabel(rank: Rank): String = when (rank) {
-        Rank.ACE -> "A"
-        Rank.TWO -> "2"
-        Rank.THREE -> "3"
-        Rank.FOUR -> "4"
-        Rank.FIVE -> "5"
-        Rank.SIX -> "6"
-        Rank.SEVEN -> "7"
-        Rank.EIGHT -> "8"
-        Rank.NINE -> "9"
-        Rank.TEN -> "10"
-        Rank.JACK -> "J"
-        Rank.QUEEN -> "Q"
-        Rank.KING -> "K"
-    }
-
     private fun restoreRootLayerOrderAfterBoardRebuild() {
         overlayLayer.parent?.removeChild(overlayLayer)
         overlayLayer.addTo(rootContainer)
         dragLayer.parent?.removeChild(dragLayer)
         dragLayer.addTo(rootContainer)
+        modalOverlayLayer.parent?.removeChild(modalOverlayLayer)
+        modalOverlayLayer.addTo(rootContainer)
     }
 
     private fun updateHud(
@@ -954,7 +967,7 @@ class SolitaireBoardRenderer(
             }
             pileId.startsWith("foundation-") -> {
                 val suitToken = pileId.removePrefix("foundation-")
-                val suitIndex = FOUNDATION_SUIT_SLOT_ORDER.indexOfFirst { it.name.lowercase() == suitToken }
+                val suitIndex = foundationSuitsVisualLeftToRight.indexOfFirst { it.name.lowercase() == suitToken }
                 if (suitIndex >= 0) {
                     foundationBindings[suitIndex]?.root?.visible = !hidden
                 }
