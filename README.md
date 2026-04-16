@@ -38,12 +38,7 @@ Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** 
 
 ## Design and Implementation
 
-I designed and implemented the KMP architecture and gameplay flow:
-
-- `:shared` owns domain rules, reducer/session behavior, read models, and board geometry.
-- `:clients:korge` owns rendering, input wiring, assets, and scene lifecycle.
-- CI scripts enforce module boundaries and catch drift before merge.
-- Shared tests validate the same core behavior across targets that depend on `:shared`.
+I designed and implemented this around one shared gameplay core (`:shared`) and thin platform rendering clients (`:clients:korge`), with CI boundary checks and shared tests to keep that split intact.
 
 ## Key Engineering Tradeoffs
 
@@ -68,10 +63,10 @@ Runs on every push and PR (`.github/workflows/ci.yml`):
 
 If you are scanning quickly, start here:
 
-1. `shared/src/commonMain/kotlin/domain/` for rule logic and state transitions
-2. `shared/src/commonMain/kotlin/presentation/solitaire/` for intent/store mapping
-3. `shared/src/commonMain/kotlin/presentation/solitaire/geometry/` for pure hit/layout math
-4. `clients/korge/src/commonMain/kotlin/ui/` for platform rendering and input integration
+1. [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) for rule logic and state transitions
+2. [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) for intent/store mapping
+3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
+4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
 
 ## Quick Start
 
@@ -100,15 +95,12 @@ Dependency direction is `:clients:korge` -> `:shared` (`dependencyProject(":shar
 
 All Kotlin under `shared/src` must not reference `korlibs.*` (or other KorGE stack packages). Boundary checks run in CI — see **What CI Enforces**.
 
-KorGE in this repo is the rendering/input shell. The same `:clients:korge` module builds desktop JVM, browser JS, Android (`assembleDebug` in CI), and iOS (`compileKotlinIosSimulatorArm64` in CI). Rules, session, read models, `UiIntent` flow, and layout math are in `:shared` and compile for Android and iOS. A separate native client (Jetpack Compose, SwiftUI, etc.) can depend on `:shared` without KorGE.
-
 ## Shared Code And Targets
 
 `:shared` is plain Kotlin and has no KorGE dependency.
 
-- `domain/`: models, actions/results, rule sets (Solitaire now, FreeCell WIP), session/reducer, `GameRenderModel`
-- `presentation/solitaire/`: `SolitaireGameStore`, `DomainUiMapper`, `UiIntent`, `CardTheme`
-- `presentation/solitaire/geometry/`: `BoardLayout`, `AxisAlignedRect`, `PileHitRegion`, `SolitaireBoardInteractionSnapshot`, and related pure layout helpers
+- Primary gameplay logic lives in [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) and [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) (including [`geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/)).
+- KorGE platform rendering/input integration lives in [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/).
 
 Gradle applies Kotlin Multiplatform to `:shared`. `commonMain` is compiled for each declared target, and `clients/korge/build.gradle.kts` wires `dependencyProject(":shared")` so clients use one shared API.
 
@@ -124,10 +116,9 @@ The playable app uses the KorGE Gradle plugin (aligned with the `korge` library 
 
 Why this split helps:
 
-- One rules implementation for all targets that link `:shared`
-- Tests in `shared/src/commonTest` hit the same domain, presentation, and geometry code paths everywhere
-- Rendering/assets stay in `:clients:korge`, while reusable game logic stays in `:shared`
-- Product logic changes happen once; platform work stays focused on input, assets, and shipping
+- One rules implementation for all targets that link `:shared`.
+- Tests in `shared/src/commonTest` validate the same domain, presentation, and geometry paths across targets.
+- Platform work stays focused on rendering/input and shipping, not re-implementing gameplay behavior.
 
 Known limits today:
 
