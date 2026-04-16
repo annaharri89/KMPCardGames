@@ -29,6 +29,19 @@ These two ratios answer different questions. Both use the same numerators: **145
 
 Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** (not included in the percentages above).
 
+**Measurement limits:**
+
+- Coverage trend is not tracked yet in this repo.
+- This project is pre-release, so there is no production bug-rate or release-velocity baseline yet.
+
+**Post-launch measurement plan:**
+
+After release, I plan to track these metrics to validate the architecture goals:
+
+- Feature parity lag: time gap between the first and last platform receiving the same gameplay feature.
+- Rule-change delivery time: time from merge of a shared gameplay change to all target builds passing.
+- Cross-platform drift defects: count of bugs caused by inconsistent gameplay behavior between platforms.
+
 ## Demo
 
 - Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
@@ -119,19 +132,6 @@ Why this split helps:
 - One rules implementation for all targets that link `:shared`.
 - Tests in `shared/src/commonTest` validate the same domain, presentation, and geometry paths across targets.
 - Platform work stays focused on rendering/input and shipping, not re-implementing gameplay behavior.
-
-Known limits today:
-
-- Coverage trend is not tracked yet in this repo.
-- This project is pre-release, so there is no production bug-rate or release-velocity baseline yet.
-
-## Post-Launch Measurement Plan
-
-After release, I plan to track these metrics to validate the architecture goals:
-
-- Feature parity lag: time gap between the first and last platform receiving the same gameplay feature.
-- Rule-change delivery time: time from merge of a shared gameplay change to all target builds passing.
-- Cross-platform drift defects: count of bugs caused by inconsistent gameplay behavior between platforms.
 
 ## Browser Test Setup (`CHROME_BIN`)
 
