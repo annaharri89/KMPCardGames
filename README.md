@@ -32,7 +32,7 @@ Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** 
 ## Demo
 
 - Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
-- Short walkthrough: `[TODO: add 30-90 second video URL]`
+- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
 
 ![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
 
