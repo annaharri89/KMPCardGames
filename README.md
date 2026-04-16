@@ -36,7 +36,7 @@ Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** 
 
 ![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
 
-## My Role
+## Design and Implementation
 
 I designed and implemented the KMP architecture and gameplay flow:
 
