@@ -1,14 +1,40 @@
 # Kotlin Multiplatform Solitaire
 
-Cross-platform solitaire with shared Kotlin game logic and thin platform clients.
+This repo demonstrates Kotlin Multiplatform card games (solitaire and FreeCell) with architecture that keeps gameplay logic reusable while platform clients stay focused on rendering and integration.
 
-## Why This Repo Is Useful For Hiring
+## Project Focus
 
-- I use one shared module for rules, state transitions, and board interaction geometry.
-- I keep platform code thin, so desktop, web, Android, and iOS ship from the same gameplay core.
-- I enforce architecture boundaries in CI and back shared logic with common tests.
+- One shared module for rules, state transitions, and board interaction geometry.
+- Platform code is thin, so desktop, web, Android, and iOS ship from the same gameplay core.
+- Module boundaries are checked in CI; shared logic is covered by common tests.
 
-If you are hiring for Kotlin Multiplatform or cross-platform game architecture, this repo is a direct example of how I structure reusable product logic.
+## Quick Start
+
+From repo root:
+
+- Desktop: `./gradlew :clients:korge:jvmRun`
+- Web dev server: `./gradlew :clients:korge:jsBrowserDevelopmentRun`
+- iOS Simulator (macOS + Xcode):
+  - `./gradlew :clients:korge:runIosSimulatorDebug`
+  - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
+  - Build + install only: `./gradlew :clients:korge:installIosSimulatorDebug`
+  - Package only: `./gradlew :clients:korge:packageIosSimulatorDebug`
+
+## What To Review First
+
+If you are scanning quickly, start here:
+
+1. [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) for rule logic and state transitions
+2. [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) for intent/store mapping
+3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
+4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
+
+## Demo
+
+- Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
+- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
+
+![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
 
 ## Repo Metrics (Current Snapshot)
 
@@ -42,13 +68,6 @@ After release, I plan to track these metrics to validate the architecture goals:
 - Rule-change delivery time: time from merge of a shared gameplay change to all target builds passing.
 - Cross-platform drift defects: count of bugs caused by inconsistent gameplay behavior between platforms.
 
-## Demo
-
-- Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
-- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
-
-![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
-
 ## Design and Implementation
 
 I designed and implemented this around one shared gameplay core (`:shared`) and thin platform rendering clients (`:clients:korge`), with CI boundary checks and shared tests to keep that split intact.
@@ -72,27 +91,6 @@ Runs on every push and PR (`.github/workflows/ci.yml`):
 
 **Not in CI:** `:clients:korge:jsTest` needs a local Chrome/Chromium (`CHROME_BIN`); see **Browser Test Setup** below.
 
-## What To Review First
-
-If you are scanning quickly, start here:
-
-1. [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) for rule logic and state transitions
-2. [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) for intent/store mapping
-3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
-4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
-
-## Quick Start
-
-From repo root:
-
-- Desktop: `./gradlew :clients:korge:jvmRun`
-- Web dev server: `./gradlew :clients:korge:jsBrowserDevelopmentRun`
-- iOS Simulator (macOS + Xcode):
-  - `./gradlew :clients:korge:runIosSimulatorDebug`
-  - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
-  - Build + install only: `./gradlew :clients:korge:installIosSimulatorDebug`
-  - Package only: `./gradlew :clients:korge:packageIosSimulatorDebug`
-
 ## Architecture Details
 
 Dependency direction is `:clients:korge` -> `:shared` (`dependencyProject(":shared")` in `clients/korge/build.gradle.kts`).
@@ -110,10 +108,7 @@ All Kotlin under `shared/src` must not reference `korlibs.*` (or other KorGE sta
 
 ## Shared Code And Targets
 
-`:shared` is plain Kotlin and has no KorGE dependency.
-
-- Primary gameplay logic lives in [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) and [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) (including [`geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/)).
-- KorGE platform rendering/input integration lives in [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/).
+`:shared` is plain Kotlin and has no KorGE dependency. Main source directories are the numbered list in **What To Review First** above.
 
 Gradle applies Kotlin Multiplatform to `:shared`. `commonMain` is compiled for each declared target, and `clients/korge/build.gradle.kts` wires `dependencyProject(":shared")` so clients use one shared API.
 
