@@ -18,7 +18,7 @@ From repo root:
   - `./gradlew :clients:korge:runAndroidDebug`
   - Install only: `./gradlew :clients:korge:installAndroidDebug`
   - Package only (AAB): `./gradlew :clients:korge:packageAndroidDebug`
-  - `runAndroidDebug` expects a device or emulator already visible to `adb`, unless you use the emulator-specific KorGE tasks (and have emulators configured).
+  - `runAndroidDebug` expects a device or emulator already visible to `adb`. For emulator-oriented flows, KorGE exposes tasks such as `./gradlew :clients:korge:androidEmulatorStart`, `./gradlew :clients:korge:runAndroidEmulatorDebug`, and `./gradlew :clients:korge:installAndroidEmulatorDebug`; those need a configured Android SDK and AVDs.
 - iOS Simulator (macOS + Xcode):
   - `./gradlew :clients:korge:runIosSimulatorDebug`
   - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
