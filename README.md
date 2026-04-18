@@ -14,6 +14,11 @@ From repo root:
 
 - Desktop: `./gradlew :clients:korge:jvmRun`
 - Web dev server: `./gradlew :clients:korge:jsBrowserDevelopmentRun`
+- Android (device or emulator):
+  - `./gradlew :clients:korge:runAndroidDebug`
+  - Install only: `./gradlew :clients:korge:installAndroidDebug`
+  - Package only (AAB): `./gradlew :clients:korge:packageAndroidDebug`
+  - `runAndroidDebug` expects a device or emulator already visible to `adb`, unless you use the emulator-specific KorGE tasks (and have emulators configured).
 - iOS Simulator (macOS + Xcode):
   - `./gradlew :clients:korge:runIosSimulatorDebug`
   - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
