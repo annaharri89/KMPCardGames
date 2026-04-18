@@ -2,6 +2,19 @@
 
 This repo demonstrates Kotlin Multiplatform card games (solitaire and FreeCell) with architecture that keeps gameplay logic reusable while platform clients stay focused on rendering and integration.
 
+## At a glance
+
+- **Stack:** Kotlin Multiplatform, KorGE (Gradle plugin), shared `:domain` / `:presentation` modules; **CI** on GitHub Actions (boundary scripts, JVM/JS/iOS/Android smoke builds).
+- **What I built:** I designed and implemented one shared gameplay core (`:shared`) and thin platform clients (`:clients:korge`), with CI checks and `commonTest` coverage so the split does not drift.
+- **Headline metrics (measured 2026-04-15):** about **98%** of measured app Kotlin is in `shared` + `clients/korge` `commonMain` (**105** lines in platform-specific Kotlin). Shared tests: **11** files / **32** `@Test` cases. Full methodology and limits are in **Repo Metrics** below.
+
+## Demo
+
+- Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
+- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
+
+![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
+
 ## Project Focus
 
 - One shared module for rules, state transitions, and board interaction geometry.
@@ -34,13 +47,6 @@ If you are scanning quickly, start here:
 3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
 4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
 
-## Demo
-
-- Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
-- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
-
-![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
-
 ## Repo Metrics (Current Snapshot)
 
 Measured on **2026-04-15**.
@@ -72,10 +78,6 @@ After release, I plan to track these metrics to validate the architecture goals:
 - Feature parity lag: time gap between the first and last platform receiving the same gameplay feature.
 - Rule-change delivery time: time from merge of a shared gameplay change to all target builds passing.
 - Cross-platform drift defects: count of bugs caused by inconsistent gameplay behavior between platforms.
-
-## Design and Implementation
-
-I designed and implemented this around one shared gameplay core (`:shared`) and thin platform rendering clients (`:clients:korge`), with CI boundary checks and shared tests to keep that split intact.
 
 ## Key Engineering Tradeoffs
 
