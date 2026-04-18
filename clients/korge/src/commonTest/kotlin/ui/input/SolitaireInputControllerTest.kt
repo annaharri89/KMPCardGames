@@ -1,7 +1,8 @@
 package ui.input
 
 import presentation.solitaire.UiIntent
-import ui.render.PileHitArea
+import presentation.solitaire.geometry.AxisAlignedRect
+import presentation.solitaire.geometry.PileHitRegion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -40,20 +41,14 @@ class SolitaireInputControllerTest {
 
     @Test
     fun resolvePileIdAtPoint_usesProvidedHitAreas() {
-        val pileHitAreas = listOf(
-            PileHitArea(
+        val pileHitRegions = listOf(
+            PileHitRegion(
                 pileId = "tableau-0",
-                x = 100.0,
-                y = 200.0,
-                width = 96.0,
-                height = 228.0,
+                bounds = AxisAlignedRect(x = 100.0, y = 200.0, width = 96.0, height = 228.0),
             ),
-            PileHitArea(
+            PileHitRegion(
                 pileId = "foundation-clubs",
-                x = 420.0,
-                y = 60.0,
-                width = 96.0,
-                height = 132.0,
+                bounds = AxisAlignedRect(x = 420.0, y = 60.0, width = 96.0, height = 132.0),
             ),
         )
 
@@ -62,7 +57,7 @@ class SolitaireInputControllerTest {
             resolvePileIdAtPoint(
                 x = 160.0,
                 y = 390.0,
-                pileHitAreas = pileHitAreas,
+                pileHitRegions = pileHitRegions,
             ),
         )
         assertEquals(
@@ -70,14 +65,14 @@ class SolitaireInputControllerTest {
             resolvePileIdAtPoint(
                 x = 455.0,
                 y = 120.0,
-                pileHitAreas = pileHitAreas,
+                pileHitRegions = pileHitRegions,
             ),
         )
         assertNull(
             resolvePileIdAtPoint(
                 x = 40.0,
                 y = 40.0,
-                pileHitAreas = pileHitAreas,
+                pileHitRegions = pileHitRegions,
             ),
         )
     }

@@ -1,5 +1,6 @@
 package presentation.solitaire
 
+import kotlin.random.Random
 import domain.model.GameVariant
 import domain.readmodel.GameRenderModel
 import domain.result.RejectionReason
@@ -17,8 +18,9 @@ data class SolitaireUiState(
 /** Remembers the latest board picture, short status lines, and win flag while the UI talks to [DomainUiMapper]. */
 class SolitaireGameStore(
     private val domainUiMapper: DomainUiMapper = DomainUiMapper(),
-    // TODO: Default to a random seed per new game (keep injectable seed for tests/replays).
-    private val initialSeed: Long = 20260320L,
+    /** Non-null: same seed every [start] (tests/replays). Null: a new [Long] from [gameSeedRandom] each [start]. */
+    private val initialSeed: Long? = null,
+    private val gameSeedRandom: Random = Random.Default,
 ) {
     private var currentState: SolitaireUiState = SolitaireUiState(
         renderModel = null,
@@ -31,9 +33,10 @@ class SolitaireGameStore(
     )
 
     fun start(): SolitaireUiState {
+        val sessionSeed = initialSeed ?: gameSeedRandom.nextLong()
         val renderModel = domainUiMapper.startGameSession(
             variant = GameVariant.SOLITAIRE,
-            seed = initialSeed,
+            seed = sessionSeed,
         )
         currentState = currentState.copy(
             renderModel = renderModel,

@@ -2,11 +2,7 @@ package ui.render
 
 import kotlin.random.Random
 
-/**
- * Drives blink, ear twitch, and neck swallow for one puppet: at most one runs at a time, separated by random idle gaps.
- * After the same kind completes twice in a row, the next pick is forced to a different kind (weights apply among allowed kinds only).
- * Used by [FoxSpadePuppetCardAnimator] and preview scenes.
- */
+/** Drives blink, ear, and neck micro-animations for one puppet. */
 data class PuppetMicroAnimConfig(
     val blinkHeadFrameIndices: List<Int>,
     val blinkTransitionFps: Double,
@@ -38,9 +34,7 @@ fun foxPuppetMicroAnimConfig(sheet: FoxPuppetSheetFacade, neckFrameCount: Int): 
         weightNeck = sheet.spec.microAnimWeightNeck,
     )
 
-/**
- * One symmetric pass: 0..n-1 then n-2..0 (for n=2 yields [0,1,0]).
- */
+/** Returns one symmetric ear pass: 0..n-1 then n-2..0. */
 fun earPassIndicesForEarPairCount(earPairCount: Int): List<Int> {
     if (earPairCount <= 1) return List(earPairCount.coerceAtLeast(1)) { 0 }
     return buildList {
@@ -76,15 +70,9 @@ class FoxSpadePuppetMicroAnimDriver(
     private val showHeadFrame: (Int) -> Unit,
     private val applyEarPairIndex: (Int) -> Unit,
     private val applyNeckFrameIndex: (Int) -> Unit,
-    /**
-     * When true (puppet-sheet previews only), idle/blink/ear are skipped: the neck keeps cycling
-     * swallow steps back-to-back so queen neck motion is always visible.
-     */
+    /** Preview mode: skip idle/blink/ear and loop neck swallow continuously. */
     private val neckSwallowLoopOnly: Boolean = false,
-    /**
-     * When true (temporary Queen of Hearts card mode), only blink runs after idle gaps; ear and neck micro-anims are skipped.
-     * Ignored when [neckSwallowLoopOnly] is true.
-     */
+    /** If true, only blink runs after idle gaps (ignored when [neckSwallowLoopOnly] is true). */
     private val blinkOnlyMicroAnims: Boolean = false,
 ) {
     private val blinkQuickHoldSec = 1.0 / config.blinkTransitionFps

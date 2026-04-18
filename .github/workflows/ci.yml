@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  shared-domain-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run shared JVM and Android unit tests
+        run: ./gradlew :shared:desktopTest :shared:testDebugUnitTest
+
+      - name: Enforce shared has no korlibs references
+        run: ./scripts/check-shared-no-korlibs.sh
+
+      - name: Enforce client architecture boundary
+        run: ./scripts/check-client-boundary.sh
+
+      - name: Client desktop smoke build
+        run: ./gradlew :clients:korge:compileKotlinJvm
+
+      - name: Client web smoke build
+        run: ./gradlew :clients:korge:jsBrowserDevelopmentWebpack
+
+  ios-client-smoke:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Client iOS simulator Kotlin compile
+        run: ./gradlew :clients:korge:compileKotlinIosSimulatorArm64
+
+  android-client-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Android debug APK smoke build
+        run: ./gradlew :clients:korge:assembleDebug

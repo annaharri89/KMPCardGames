@@ -1,4 +1,4 @@
-package ui.render
+package presentation.solitaire.geometry
 
 import domain.model.CardColor
 import domain.model.Rank
@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class SolitaireBoardRendererTest {
+class TableauLayoutTest {
     @Test
     fun calculateTableauHitHeight_matchesVisibleStackHeight() {
         assertEquals(

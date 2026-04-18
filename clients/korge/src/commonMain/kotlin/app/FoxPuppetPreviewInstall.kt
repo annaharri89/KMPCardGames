@@ -25,14 +25,10 @@ import kotlin.random.Random
 import kotlin.time.Duration
 
 /**
- * Shared debug-preview installer for fox puppet sheets. Loads [sheetPath], slices it with [sheet],
- * builds an animated puppet stack with neck-swallow-only micro-animations, and shows a full-sheet
- * thumbnail. [extraWidgets] runs after slicing and before the thumbnail, so callers can inject
- * scene-specific labels, card previews, etc. [previewId] is used to tag bitmap slices.
- * For [FoxHeartPuppetSheet], [FoxHeartQueenAnimationDebugFlags] applies: hidden neck when configured,
- * no updater only when [FoxHeartQueenAnimationDebugFlags.suppressAllCardAnimations] is true; otherwise
- * blink-only preview when [FoxHeartQueenAnimationDebugFlags.suppressNonBlinkCardAnimations] is true
- * (matching the card), or neck-swallow loop + tail like spade when both heart motion flags are off.
+ * Installs the shared fox-sheet debug preview scene.
+ *
+ * Loads [sheetPath], builds slices with [sheet], runs [extraWidgets], then draws the sheet thumbnail and puppet stack.
+ * [previewId] is used to name generated bitmap slices.
  */
 fun Stage.installFoxPuppetPreview(
     sheet: FoxPuppetSheetFacade,

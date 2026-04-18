@@ -1,18 +1,16 @@
 package ui.render
 
-/**
- * Tuning flags for the Queen of Hearts fox puppet on playable cards.
- */
+/** Debug flags for Queen of Hearts fox card motion. */
 object FoxHeartQueenAnimationDebugFlags {
-    /** When true, Queen of Hearts is a static stack (no blink). Prefer false + [suppressNonBlinkCardAnimations] for blink-only. */
+    /** If true, keep the card fully static (no blink). */
     const val suppressAllCardAnimations: Boolean = false
 
-    /** Omits the neck slice in static layout, or hides the neck layer when the board animates fox queens. */
+    /** If true, hide the neck on-card. */
     const val hideNeckOnCard: Boolean = true
 
     /**
-     * When [suppressAllCardAnimations] is false and fox queen animation is on: if true, only blink runs;
-     * ear twitch, neck swallow, and tail wag stay off.
+     * If true (and not fully static), run blink only.
+     * Ear, neck, and tail motion stay off.
      */
     const val suppressNonBlinkCardAnimations: Boolean = true
 }

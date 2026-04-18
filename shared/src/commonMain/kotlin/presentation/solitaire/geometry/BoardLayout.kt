@@ -1,6 +1,6 @@
-package ui.layout
+package presentation.solitaire.geometry
 
-/** Top-left anchor for one pile, in the same coordinate space as the KorGE scene. */
+/** Top-left anchor for one pile, in the same coordinate space as the client scene. */
 data class PileLayout(
     val x: Double,
     val y: Double,
