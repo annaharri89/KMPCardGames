@@ -6,7 +6,7 @@ Solitaire and FreeCell (in progress) on **Kotlin Multiplatform**: one shared gam
 
 | | |
 | --- | --- |
-| **Live demo** | [harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire) |
+| **Interactive Demo** | [harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire) |
 | **Walkthrough** | [Demo video](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov) |
 
 ![Playable V1 Solitaire in the KorGE desktop window](docs/readme-solitaire-desktop.png)
@@ -19,7 +19,6 @@ Solitaire and FreeCell (in progress) on **Kotlin Multiplatform**: one shared gam
 | Gradle | 8.10.2 (wrapper) |
 | Android Gradle Plugin | 8.6.1 |
 | KorGE (plugin + library) | 6.0.0 |
-| CI JDK | Temurin 21 |
 
 **Modules:** `:shared` (KMP library, no KorGE) · `:clients:korge` (KorGE app, depends on `:shared`).
 
@@ -49,11 +48,9 @@ From the repository root:
 
 `runAndroidDebug` expects a device or emulator already visible to `adb`. For emulator-focused flows, KorGE also exposes tasks such as `androidEmulatorStart`, `runAndroidEmulatorDebug`, and `installAndroidEmulatorDebug` on `:clients:korge`.
 
-For iOS, `runIosSimulatorDebug` in this repo is wired to depend on `runIosSimulatorDebugDetached` and skip the attach-to-console exec; prefer **`runIosSimulatorDebugDetached`** for local “install and launch on booted simulator.”
+Use `runIosSimulatorDebugDetached` as the default local iOS run task.
 
 ## Project structure
-
-Gradle project name: **`kmpExample`**.
 
 ```
 :shared                          # KMP library — domain + presentation (no KorGE)
@@ -83,13 +80,6 @@ Domain and presentation live as **packages inside `:shared`**, not as separate G
 - **Client:** KorGE stays in `:clients:korge`; gameplay stays engine-agnostic. Geometry and hit-testing remain **pure Kotlin in `:shared`** so tests stay simple; the renderer maps shared geometry to KorGE views.
 - **Boundaries:** No `korlibs.*` (or other KorGE packages) under `shared/src`. CI scripts enforce that and the client↔shared API boundary (see [CI](#continuous-integration)).
 
-## Code-sharing snapshot
-
-Snapshot measured **2026-04-15** (non-blank `.kt` lines; `commonTest` excluded from app Kotlin totals). Numbers drift as the repo grows.
-
-- **`commonMain` app Kotlin** (`:shared` + `:clients:korge`): ~**98%** of measured app Kotlin; **105** lines in platform-specific `.kt` outside `commonMain` for those trees.  
-- **Shared tests:** `shared/src/commonTest/kotlin` — **11** files / **32** `@Test` functions.  
-
 ## Testing
 
 - **Shared unit tests (CI):** `./gradlew :shared:desktopTest :shared:testDebugUnitTest` — JVM desktop plus Android unit tests over `commonTest`.
@@ -106,8 +96,6 @@ brew install --cask google-chrome
 export CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ./gradlew :clients:korge:jsTest
 ```
-
-Persist `CHROME_BIN` in `~/.zshrc` if you run browser tests often.
 
 ## Continuous integration
 
