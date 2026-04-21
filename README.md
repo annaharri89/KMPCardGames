@@ -1,12 +1,21 @@
 # Kotlin Multiplatform Solitaire
 
+[![CI](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml/badge.svg)](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml)
+
 This repo demonstrates Kotlin Multiplatform card games (solitaire and FreeCell) with architecture that keeps gameplay logic reusable while platform clients stay focused on rendering and integration.
 
 ## At a glance
 
-- **Stack:** Kotlin Multiplatform, KorGE (Gradle plugin), shared `:domain` / `:presentation` modules; **CI** on GitHub Actions (boundary scripts, JVM/JS/iOS/Android smoke builds).
-- **What I built:** I designed and implemented one shared gameplay core (`:shared`) and thin platform clients (`:clients:korge`), with CI checks and `commonTest` coverage so the split does not drift.
-- **Headline metrics (measured 2026-04-15):** about **98%** of measured app Kotlin is in `shared` + `clients/korge` `commonMain` (**105** lines in platform-specific Kotlin). Shared tests: **11** files / **32** `@Test` cases. Full methodology and limits are in **Repo Metrics** below.
+- **Stack:** Kotlin Multiplatform, KorGE (Gradle plugin), **`:shared`** + **`:clients:korge`** (rules and presentation live in **`domain`** / **`presentation`** *packages* inside `:shared`, not separate Gradle modules); **CI** on GitHub Actions (boundary scripts, JVM/JS/iOS/Android smoke builds).
+- **What I built:** I designed and implemented one shared gameplay core (`:shared`) and thin platform clients (`:clients:korge`), with CI checks and automated tests in the shared module (`commonTest`) so the split does not drift.
+- **Headline metrics (measured 2026-04-15):** about **98%** of measured app Kotlin is in `shared` + `clients/korge` `commonMain` (**105** lines in platform-specific Kotlin). Automated tests on that shared logic: **11** files / **32** test functions (`@Test`). Breakdown and how those numbers were counted are in **Repo Metrics** below.
+
+### Recruiter snapshot
+
+- **~98%** of measured app Kotlin lives in `commonMain` (**105** lines platform-specific); thin clients, one rules core.
+- **32** automated tests across **11** files — same suite exercises rules and layout math in the shared module (`commonTest`), not only inside the KorGE client.
+- **CI** on every push and PR: shared tests, architecture boundary scripts, and JVM / JS / iOS / Android smoke builds (see **What CI Enforces**).
+- **Live demo:** [harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire) — metric breakdown in **Repo Metrics** below.
 
 ## Demo
 
@@ -33,8 +42,8 @@ From repo root:
   - Package only (AAB): `./gradlew :clients:korge:packageAndroidDebug`
   - `runAndroidDebug` expects a device or emulator already visible to `adb`. For emulator-oriented flows, KorGE exposes tasks such as `./gradlew :clients:korge:androidEmulatorStart`, `./gradlew :clients:korge:runAndroidEmulatorDebug`, and `./gradlew :clients:korge:installAndroidEmulatorDebug`; those need a configured Android SDK and AVDs.
 - iOS Simulator (macOS + Xcode):
-  - `./gradlew :clients:korge:runIosSimulatorDebug`
-  - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
+  - `./gradlew :clients:korge:runIosSimulatorDebugDetached` — use this for local “install and launch on booted simulator” (it is the task Gradle lists under **Run** alongside `jvmRun`).
+  - `./gradlew :clients:korge:runIosSimulatorDebug` — in this repo the KorGE attach-to-console run is disabled; this task is configured to depend on **`runIosSimulatorDebugDetached`** and then skip the original Exec, so prefer the detached task above for clarity.
   - Build + install only: `./gradlew :clients:korge:installIosSimulatorDebug`
   - Package only: `./gradlew :clients:korge:packageIosSimulatorDebug`
 
@@ -47,24 +56,22 @@ If you are scanning quickly, start here:
 3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
 4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
 
-## Repo Metrics (Current Snapshot)
+## Repo Metrics (current snapshot)
 
 Measured on **2026-04-15**.
 
-**Summary:** About **98%** of measured app Kotlin is in `shared/commonMain` and `clients/korge/commonMain`; the rest is **105** lines in platform-specific source sets.
+This matches how Kotlin Multiplatform is usually presented in production writeups and JetBrains guidance: **keep product logic in `commonMain`**, put **platform source sets** (`androidMain`, `iosMain`, `jsMain`, `desktopMain`, and similar) on a **short leash** for startup, OS APIs, and wiring. The question reviewers care about is “how much Kotlin is shared vs target-specific?” — not “what fraction of every file in the repo is Kotlin?”
 
-These two ratios answer different questions. Both use the same numerators: **1455** lines in `shared/src/commonMain/kotlin`, **3956** in `clients/korge/src/commonMain/kotlin` (**5411** combined).
+**App Kotlin (tests excluded):**
 
-**1) Cross-platform organization (Kotlin)** — how much app logic stays in `commonMain` vs platform-specific code:
+- `shared/src/commonMain/kotlin`: **1455** lines  
+- `clients/korge/src/commonMain/kotlin`: **3956** lines  
+- **Together (`commonMain`):** **5411** lines ≈ **98%** of **5516** lines of app Kotlin  
+- **Platform-specific `.kt`:** **105** lines total across the non-`commonMain` source sets above  
 
-- **98.10%** (`5411 / 5516` Kotlin lines): `shared/commonMain` + `clients/korge/commonMain` vs that plus all Kotlin in platform-specific source sets (`androidMain`, `iosMain`, `jsMain`, `desktopMain`, etc.). Platform-specific Kotlin today: **105** lines.
-- This is the number that shows thin platform boundaries and little duplicated per-target code.
+**Shared tests** (`shared/src/commonTest/kotlin`): **11** files / **32** test functions (`@Test`) (not included in the Kotlin totals above).
 
-**2) Share of the tracked project (text, minus noise)** — how much of the repo (excluding docs, lockfiles, tests, and common binary assets such as PNGs) is that shared stack:
-
-- **83.69%** (`5411 / 6466` lines): same **5411** `commonMain` Kotlin vs that plus **1055** lines of Gradle, scripts, manifests, thin platform entrypoints, and other non-`commonMain` text under the same filter. The **6466**-line total is **5411** `commonMain` Kotlin plus **1055** lines of build and wiring, not duplicate game logic.
-
-Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** (not included in the percentages above).
+**Counting notes:** non-blank lines in `.kt` under those trees; `commonTest` and other test source sets excluded. Totals will move as the repo grows; treat this as a snapshot, not a dashboard.
 
 **Measurement limits:**
 
@@ -93,7 +100,7 @@ A green local build doesn’t prove `:shared` still compiles cleanly for every t
 Runs on every push and PR (`.github/workflows/ci.yml`):
 
 - **Shared tests:** `:shared:desktopTest`, `:shared:testDebugUnitTest` (JVM desktop + Android unit tests over `commonTest`).
-- **Guards:** `check-shared-no-korlibs.sh`, `check-client-boundary.sh`.
+- **Guards:** `./scripts/check-shared-no-korlibs.sh`, `./scripts/check-client-boundary.sh`.
 - **KorGE smoke builds:** Linux — `compileKotlinJvm`, `jsBrowserDevelopmentWebpack`; macOS — `compileKotlinIosSimulatorArm64`; separate Linux job — `assembleDebug` with Android SDK.
 
 **Not in CI:** `:clients:korge:jsTest` needs a local Chrome/Chromium (`CHROME_BIN`); see **Browser Test Setup** below.
