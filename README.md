@@ -1,4 +1,4 @@
-# Kotlin Multiplatform Solitaire
+# KMP Card Games
 
 [![CI](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml/badge.svg)](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
