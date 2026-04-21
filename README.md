@@ -1,161 +1,118 @@
-# Kotlin Multiplatform Solitaire
+# KMP Card Games
 
-This repo demonstrates Kotlin Multiplatform card games (solitaire and FreeCell) with architecture that keeps gameplay logic reusable while platform clients stay focused on rendering and integration.
+[![CI](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml/badge.svg)](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## At a glance
+Solitaire and FreeCell (in progress) on **Kotlin Multiplatform**: one shared gameplay core (`:shared`) and a **KorGE** client (`:clients:korge`) for desktop, web, Android, and iOS. Rules, state, and pure layout/hit geometry stay out of the engine; the client maps shared types to KorGE views and input.
 
-- **Stack:** Kotlin Multiplatform, KorGE (Gradle plugin), shared `:domain` / `:presentation` modules; **CI** on GitHub Actions (boundary scripts, JVM/JS/iOS/Android smoke builds).
-- **What I built:** I designed and implemented one shared gameplay core (`:shared`) and thin platform clients (`:clients:korge`), with CI checks and `commonTest` coverage so the split does not drift.
-- **Headline metrics (measured 2026-04-15):** about **98%** of measured app Kotlin is in `shared` + `clients/korge` `commonMain` (**105** lines in platform-specific Kotlin). Shared tests: **11** files / **32** `@Test` cases. Full methodology and limits are in **Repo Metrics** below.
+| | |
+| --- | --- |
+| **Interactive Demo** | [harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire) |
+| **Walkthrough** | [Demo video](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov) |
 
-## Demo
+![Playable V1 Solitaire in the KorGE desktop window](docs/readme-solitaire-desktop.png)
 
-- Live demo: [https://harrisonsoftware.dev/solitaire](https://harrisonsoftware.dev/solitaire)
-- Short walkthrough: [Watch demo](https://annaharri89.github.io/images/external/KMPSolitaireDemo.mov)
+## Tech stack
 
-![Playable V1 Solitaire running in the KorGE desktop window](docs/readme-solitaire-desktop.png)
+| | Version / notes |
+| --- | --- |
+| Kotlin | 2.0.21 |
+| Gradle | 8.10.2 (wrapper) |
+| Android Gradle Plugin | 8.6.1 |
+| KorGE (plugin + library) | 6.0.0 |
 
-## Project Focus
+**Modules:** `:shared` (KMP library, no KorGE) · `:clients:korge` (KorGE app, depends on `:shared`).
 
-- One shared module for rules, state transitions, and board interaction geometry.
-- Platform code is thin, so desktop, web, Android, and iOS ship from the same gameplay core.
-- Module boundaries are checked in CI; shared logic is covered by common tests.
+## Prerequisites
 
-## Quick Start
+- **JDK 21** (CI uses Eclipse Temurin 21).
+- **Android:** Android SDK, platform tools (`adb`), and a device or emulator for `runAndroidDebug` / install tasks.
+- **iOS Simulator:** macOS with **Xcode** (Apple toolchains for Kotlin/Native).
+- **Web dev:** a browser; optional **Chrome/Chromium** for `jsTest` (see [Browser tests](#browser-tests)).
 
-From repo root:
+Open the repo in **IntelliJ IDEA** or **Android Studio**, let Gradle sync, then use the tasks below from the IDE terminal or a shell at the repo root.
 
-- Desktop: `./gradlew :clients:korge:jvmRun`
-- Web dev server: `./gradlew :clients:korge:jsBrowserDevelopmentRun`
-- Android (device or emulator):
-  - `./gradlew :clients:korge:runAndroidDebug`
-  - Install only: `./gradlew :clients:korge:installAndroidDebug`
-  - Package only (AAB): `./gradlew :clients:korge:packageAndroidDebug`
-  - `runAndroidDebug` expects a device or emulator already visible to `adb`. For emulator-oriented flows, KorGE exposes tasks such as `./gradlew :clients:korge:androidEmulatorStart`, `./gradlew :clients:korge:runAndroidEmulatorDebug`, and `./gradlew :clients:korge:installAndroidEmulatorDebug`; those need a configured Android SDK and AVDs.
-- iOS Simulator (macOS + Xcode):
-  - `./gradlew :clients:korge:runIosSimulatorDebug`
-  - `./gradlew :clients:korge:runIosSimulatorDebugDetached` (recommended locally)
-  - Build + install only: `./gradlew :clients:korge:installIosSimulatorDebug`
-  - Package only: `./gradlew :clients:korge:packageIosSimulatorDebug`
+## Getting started
 
-## What To Review First
+From the repository root:
 
-If you are scanning quickly, start here:
+| Target | Command |
+| --- | --- |
+| Desktop (JVM) | `./gradlew :clients:korge:jvmRun` |
+| Web (dev server) | `./gradlew :clients:korge:jsBrowserDevelopmentRun` |
+| Android — run | `./gradlew :clients:korge:runAndroidDebug` |
+| Android — install | `./gradlew :clients:korge:installAndroidDebug` |
+| Android — package | `./gradlew :clients:korge:packageAndroidDebug` |
+| iOS Simulator — run (detached) | `./gradlew :clients:korge:runIosSimulatorDebugDetached` |
+| iOS Simulator — install | `./gradlew :clients:korge:installIosSimulatorDebug` |
+| iOS Simulator — package | `./gradlew :clients:korge:packageIosSimulatorDebug` |
 
-1. [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) for rule logic and state transitions
-2. [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) for intent/store mapping
-3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) for pure hit/layout math
-4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) for platform rendering and input integration
+`runAndroidDebug` expects a device or emulator already visible to `adb`. For emulator-focused flows, KorGE also exposes tasks such as `androidEmulatorStart`, `runAndroidEmulatorDebug`, and `installAndroidEmulatorDebug` on `:clients:korge`.
 
-## Repo Metrics (Current Snapshot)
+Use `runIosSimulatorDebugDetached` as the default local iOS run task.
 
-Measured on **2026-04-15**.
-
-**Summary:** About **98%** of measured app Kotlin is in `shared/commonMain` and `clients/korge/commonMain`; the rest is **105** lines in platform-specific source sets.
-
-These two ratios answer different questions. Both use the same numerators: **1455** lines in `shared/src/commonMain/kotlin`, **3956** in `clients/korge/src/commonMain/kotlin` (**5411** combined).
-
-**1) Cross-platform organization (Kotlin)** — how much app logic stays in `commonMain` vs platform-specific code:
-
-- **98.10%** (`5411 / 5516` Kotlin lines): `shared/commonMain` + `clients/korge/commonMain` vs that plus all Kotlin in platform-specific source sets (`androidMain`, `iosMain`, `jsMain`, `desktopMain`, etc.). Platform-specific Kotlin today: **105** lines.
-- This is the number that shows thin platform boundaries and little duplicated per-target code.
-
-**2) Share of the tracked project (text, minus noise)** — how much of the repo (excluding docs, lockfiles, tests, and common binary assets such as PNGs) is that shared stack:
-
-- **83.69%** (`5411 / 6466` lines): same **5411** `commonMain` Kotlin vs that plus **1055** lines of Gradle, scripts, manifests, thin platform entrypoints, and other non-`commonMain` text under the same filter. The **6466**-line total is **5411** `commonMain` Kotlin plus **1055** lines of build and wiring, not duplicate game logic.
-
-Shared tests in `shared/src/commonTest/kotlin`: **11 files / 32 `@Test` cases** (not included in the percentages above).
-
-**Measurement limits:**
-
-- Coverage trend is not tracked yet in this repo.
-- This project is pre-release, so there is no production bug-rate or release-velocity baseline yet.
-
-**Post-launch measurement plan:**
-
-After release, I plan to track these metrics to validate the architecture goals:
-
-- Feature parity lag: time gap between the first and last platform receiving the same gameplay feature.
-- Rule-change delivery time: time from merge of a shared gameplay change to all target builds passing.
-- Cross-platform drift defects: count of bugs caused by inconsistent gameplay behavior between platforms.
-
-## Key Engineering Tradeoffs
-
-- I chose strict module boundaries early, even though it adds some upfront plumbing, because it keeps platform code from leaking into shared rules.
-- I kept geometry and hit-testing pure in `:shared`, which makes tests easier, but required extra mapping work in the KorGE renderer.
-- I used KorGE as a rendering shell instead of putting game rules in scenes, so gameplay changes stay engine-agnostic.
-- I added CI boundary scripts to prevent architecture drift, trading a little CI time for stronger long-term maintainability.
-
-## What CI Enforces
-
-A green local build doesn’t prove `:shared` still compiles cleanly for every target you care about. This pipeline fails PRs when boundaries slip (KorGE leaking into shared, client re-implementing domain types), when shared tests regress, or when a platform compile breaks — before merge. Smoke builds cover JVM, JS webpack, iOS Kotlin, and Android debug on Linux/macOS runners so “works on my machine” shows up as a red CI run, not a surprise for the next person.
-
-Runs on every push and PR (`.github/workflows/ci.yml`):
-
-- **Shared tests:** `:shared:desktopTest`, `:shared:testDebugUnitTest` (JVM desktop + Android unit tests over `commonTest`).
-- **Guards:** `check-shared-no-korlibs.sh`, `check-client-boundary.sh`.
-- **KorGE smoke builds:** Linux — `compileKotlinJvm`, `jsBrowserDevelopmentWebpack`; macOS — `compileKotlinIosSimulatorArm64`; separate Linux job — `assembleDebug` with Android SDK.
-
-**Not in CI:** `:clients:korge:jsTest` needs a local Chrome/Chromium (`CHROME_BIN`); see **Browser Test Setup** below.
-
-## Architecture Details
-
-Dependency direction is `:clients:korge` -> `:shared` (`dependencyProject(":shared")` in `clients/korge/build.gradle.kts`).
+## Project structure
 
 ```
-:shared
-├── domain/              rules, models, session, deterministic reducer, GameRenderModel projection
-└── presentation/        engine-agnostic intents, store, pure geometry (hit rects, board anchors)
+:shared                          # KMP library — domain + presentation (no KorGE)
+├── domain/                      # Rules, models, session, reducer, render projection
+└── presentation/                # Intents, store, pure geometry (hit rects, anchors)
 
-:clients:korge
-└── src/commonMain/      KorGE scenes, assets, input, SolitaireBoardRenderer (maps shared types to KorGE views)
+:clients:korge                   # KorGE application
+└── src/commonMain/kotlin/ui/   # Scenes, assets, input, board renderer
 ```
 
-All Kotlin under `shared/src` must not reference `korlibs.*` (or other KorGE stack packages). Boundary checks run in CI — see **What CI Enforces**.
+**Dependency direction:** `:clients:korge` → `:shared` (`dependencyProject(":shared")` in `clients/korge/build.gradle.kts`).
 
-## Shared Code And Targets
+**`:shared` targets** (from `shared/build.gradle.kts`): Android, desktop JVM (`jvm("desktop")`), JS browser, iOS (`iosX64`, `iosArm64`, `iosSimulatorArm64`), tvOS (`tvosArm64`, `tvosX64`, `tvosSimulatorArm64`). There is **no** KorGE tvOS app in this repo; tvOS is compiled for `:shared` only.
 
-`:shared` is plain Kotlin and has no KorGE dependency. Main source directories are the numbered list in **What To Review First** above.
+### Where to look first
 
-Gradle applies Kotlin Multiplatform to `:shared`. `commonMain` is compiled for each declared target, and `clients/korge/build.gradle.kts` wires `dependencyProject(":shared")` so clients use one shared API.
+1. [`shared/src/commonMain/kotlin/domain/`](shared/src/commonMain/kotlin/domain/) — rule logic and state transitions  
+2. [`shared/src/commonMain/kotlin/presentation/solitaire/`](shared/src/commonMain/kotlin/presentation/solitaire/) — intent / store mapping  
+3. [`shared/src/commonMain/kotlin/presentation/solitaire/geometry/`](shared/src/commonMain/kotlin/presentation/solitaire/geometry/) — pure hit / layout math  
+4. [`clients/korge/src/commonMain/kotlin/ui/`](clients/korge/src/commonMain/kotlin/ui/) — KorGE UI and input wiring  
 
-`shared/build.gradle.kts` currently enables:
+Domain and presentation live as **packages inside `:shared`**, not as separate Gradle modules.
 
-- Android (`androidTarget`)
-- Desktop JVM (`jvm("desktop")`)
-- Browser (`js` with `browser()`)
-- iOS (`iosX64`, `iosArm64`, `iosSimulatorArm64`)
-- tvOS (`tvosArm64`, `tvosX64`, `tvosSimulatorArm64`)
+## Architecture
 
-The playable app uses the KorGE Gradle plugin (aligned with the `korge` library version). JVM, JS, Android, and iOS share `commonMain` plus small platform entrypoints (`jvmMain`, `jsMain`, `androidMain`, `iosMain`, and Android manifests). This repo does not register a KorGE tvOS app target; tvOS is compiled for `:shared` only.
+- **Shared core:** One implementation of rules and deterministic updates for every client that links `:shared`. Tests in `shared/src/commonTest` exercise the same paths across targets.
+- **Client:** KorGE stays in `:clients:korge`; gameplay stays engine-agnostic. Geometry and hit-testing remain **pure Kotlin in `:shared`** so tests stay simple; the renderer maps shared geometry to KorGE views.
+- **Boundaries:** No `korlibs.*` (or other KorGE packages) under `shared/src`. CI scripts enforce that and the client↔shared API boundary (see [CI](#continuous-integration)).
 
-Why this split helps:
+## Testing
 
-- One rules implementation for all targets that link `:shared`.
-- Tests in `shared/src/commonTest` validate the same domain, presentation, and geometry paths across targets.
-- Platform work stays focused on rendering/input and shipping, not re-implementing gameplay behavior.
+- **Shared unit tests (CI):** `./gradlew :shared:desktopTest :shared:testDebugUnitTest` — JVM desktop plus Android unit tests over `commonTest`.
+- **Browser (`jsTest`):** not run in CI; needs `CHROME_BIN` pointing at Chrome or Chromium.
 
-## Browser Test Setup (`CHROME_BIN`)
+### Browser tests
 
-`jsTest` needs a Chrome or Chromium binary path.
+`jsTest` needs a Chrome/Chromium binary path.
 
-Install Chrome on macOS:
+**macOS (Homebrew Chrome):**
 
-- `brew install --cask google-chrome`
+```bash
+brew install --cask google-chrome
+export CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+./gradlew :clients:korge:jsTest
+```
 
-Set `CHROME_BIN` in current shell:
+## Continuous integration
 
-- `export CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`
+Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) on every push and PR.
 
-Persist in zsh:
+- **Java:** Temurin 21  
+- **Shared:** `:shared:desktopTest`, `:shared:testDebugUnitTest`  
+- **Guards:** `./scripts/check-shared-no-korlibs.sh`, `./scripts/check-client-boundary.sh`  
+- **Smoke builds:** `:clients:korge:compileKotlinJvm`, `jsBrowserDevelopmentWebpack`, `compileKotlinIosSimulatorArm64` (macOS job), `assembleDebug` with Android SDK (Linux job)  
 
-- `echo 'export CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"' >> ~/.zshrc`
-- `source ~/.zshrc`
-
-Run browser tests:
-
-- `./gradlew :clients:korge:jsTest`
+`:clients:korge:jsTest` is local-only until a headless browser is wired in CI.
 
 ## Roadmap
 
-- FreeCell gameplay support: WIP
+- **FreeCell** gameplay: work in progress  
+
+## License
+
+[Apache License 2.0](LICENSE)
