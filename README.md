@@ -1,6 +1,7 @@
 # Kotlin Multiplatform Solitaire
 
 [![CI](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml/badge.svg)](https://github.com/annaharri89/KMPCardGames/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 Solitaire and FreeCell (in progress) on **Kotlin Multiplatform**: one shared gameplay core (`:shared`) and a **KorGE** client (`:clients:korge`) for desktop, web, Android, and iOS. Rules, state, and pure layout/hit geometry stay out of the engine; the client maps shared types to KorGE views and input.
 
